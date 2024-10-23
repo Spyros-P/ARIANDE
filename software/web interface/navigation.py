@@ -25,29 +25,78 @@ class Indoor_Navigation:
         # Stage 1: Initial image processing
         self.image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
 
-        # Stage 2: Blurring the image
-        blur = [gaussian_blur((17, 17), 7)] if blur is None else blur
-        self.blurred = apply_filters(self.image, blur)
-        
-        # Stage 3: Thresholding the image
-        threshold = [adaptive_threshold(81, 5),
-                     morph_close(kernel(9)),
-                     morph_dilate(kernel(5), 2)] if threshold is None else threshold
-        self.thresholded = apply_filters(self.blurred, threshold)
+        filters = [morph_close(kernel(3)),
+             morph_open(kernel(80)),
+             adaptive_threshold(21, 51),
+             morph_open(kernel(3)),
+             morph_close(kernel(20)),
+             morph_dilate(kernel(5)),
+             ]
+        walls_and_doors = apply_filters(self.image, filters)
 
-        # Stage 4: Find contours of the features
-        self.contours, _ = cv2.findContours(self.thresholded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        filters = [gaussian_blur((17, 17), 7),
+                    adaptive_threshold(81, 5),
+                    morph_open(kernel(15)),
+                    morph_close(kernel(18)),
+                    ]
+        image_mask = apply_filters(self.image, filters)
 
-        # Stage 5: Find the contours of the buildings
-        # Use adaptive thresholding to handle different lighting conditions in the image
-        threshold = [morph_close(kernel(3)),
-                     morph_open(kernel(80)),
-                     adaptive_threshold(21, 51),
-                     morph_open(kernel(3)),
-                     morph_close(kernel(20))]
-        image_thresh = apply_filters(self.image, threshold)
+        # put the mask on the original image
+        doors_closed = cv2.bitwise_and(image_mask, walls_and_doors)
 
-        contours, _ = cv2.findContours(image_thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        filters = [morph_close(kernel(22)),
+                ]
+        doors_open = apply_filters(doors_closed, filters)
+
+        doors = cv2.bitwise_xor(doors_closed, doors_open)
+
+        filters = [morph_open(kernel(3)),
+                #morph_dilate(kernel(5))
+                ]
+        doors = apply_filters(doors, filters)
+
+        door_contours, _ = cv2.findContours(doors, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        # print('Number of doors:', len(door_contours))
+
+        filters = [morph_dilate(kernel(3))
+                ]
+        walls_doors_dilated = apply_filters(walls_and_doors, filters)
+
+        obstacles = cv2.bitwise_or(self.image, walls_doors_dilated)
+
+        filters = [morph_dilate(kernel(45))]
+        doors_dilated = apply_filters(doors, filters)
+        obstacles = cv2.bitwise_or(obstacles, doors_dilated)
+
+        filters = [morph_open(kernel(3)),
+                gaussian_blur((5, 5), 5),
+                adaptive_threshold(201, 3),]
+        obstacles = apply_filters(obstacles, filters)
+
+        filters = [morph_open(kernel(4)),
+                morph_close(kernel(3))
+                ]
+        obstacles = apply_filters(obstacles, filters)
+        # get contours of the obstacles
+        self.obstacles, _ = cv2.findContours(obstacles, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        filters = [morph_dilate(kernel(5)),
+                invert
+                ]
+        mask = apply_filters(doors, filters)
+        walls = cv2.bitwise_and(walls_and_doors, mask)
+
+        contours, _ = cv2.findContours(walls, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        walls_contour = contours[-1]
+
+        # get the center of each door
+        door_centers = []
+        for door in door_contours:
+            x, y, w, h = cv2.boundingRect(door)
+            door_centers.append((x + w // 2, y + h // 2))
+
+        contours, _ = cv2.findContours(walls_and_doors, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         self.building = contours[0]
         self.rooms = contours[1:]
 
@@ -68,11 +117,20 @@ class Indoor_Navigation:
             for j in range(grid_size, self.image.shape[0], grid_size):
                 nodes.append((i, j))
 
+        # Reject nodes that are on walls
+        valid_nodes = [node for node in nodes if cv2.pointPolygonTest(walls_contour, (node[0], node[1]), False) > 0]
+
+        # Reject nodes that are on doors
+        valid_nodes = [node for node in valid_nodes if not any(cv2.pointPolygonTest(door, (node[0], node[1]), False) > 0 for door in door_contours)]
+
         # Reject nodes that are within the contours
-        valid_nodes = [node for node in nodes if not any(cv2.pointPolygonTest(contour, (node[0], node[1]), False) > 0 for contour in self.contours)]
+        valid_nodes = [node for node in valid_nodes if not any(cv2.pointPolygonTest(contour, (node[0], node[1]), False) > 0 for contour in self.obstacles)]
 
         # Reject nodes that are outside of building
         valid_nodes = [node for node in valid_nodes if cv2.pointPolygonTest(self.building, (node[0], node[1]), False) >= 0]
+
+        # Add the door centers as nodes
+        #valid_nodes.extend(door_centers)
 
         # Stage 7: Create a graph based on the nodes
         # Connect the nodes to form a graph based on a threshold distance
@@ -90,7 +148,11 @@ class Indoor_Navigation:
             idx.insert(i, (node[0], node[1], node[0], node[1]))
 
         # Convert contours to Shapely Polygons for efficient intersection checks
-        self.obstacles = [Polygon(c.squeeze()) for c in self.contours]
+        self.obstacles = [Polygon(c.squeeze()) for c in self.obstacles]
+
+        self.walls_contour = [Polygon(walls_contour.squeeze())]
+
+        self.rooms = [Polygon(c.squeeze()) for c in self.rooms]
 
         # Connect nodes if close enough and no intersection with contours
         for i, pos_i in positions.items():
@@ -112,7 +174,35 @@ class Indoor_Navigation:
                     continue
 
                 line = LineString([pos_i, pos_j])
-                if not does_line_intersect_contour(line, self.obstacles):
+                if not does_line_intersect_contour(line, self.obstacles) and line_is_inside_contour(line, self.rooms):
+                    G.add_edge(i, j, weight=distances_dict[j])
+
+        num_nodes_offset = len(valid_nodes)    
+        door_positions = {}
+        # Add the door centers as nodes
+        for i, node in enumerate(door_centers):
+            G.add_node(i + len(valid_nodes), pos=node)
+            positions[i + len(valid_nodes)] = node
+            door_positions[i] = node
+        
+        # Connect the door centers to the graph
+        for i, pos_i in door_positions.items():
+            i += num_nodes_offset
+            nearby_nodes = list(idx.nearest((pos_i[0], pos_i[1], pos_i[0], pos_i[1]), 50))
+            distances_dict = {x: np.linalg.norm(np.array(pos_i) - np.array(positions[x])) for x in nearby_nodes}
+            nearby_nodes = sorted(nearby_nodes, key=lambda x: distances_dict[x])
+            nearby_nodes = [x for x in nearby_nodes if distances_dict[x] < grid_size * 2.3]
+            for j in nearby_nodes:
+                if j >= len(valid_nodes):
+                    continue
+                pos_j = positions[j]
+                vector = np.array(pos_j) - np.array(pos_i)
+                vector //= grid_size
+                if np.gcd(vector[0], vector[1]) != 1:
+                    continue
+
+                line = LineString([pos_i, pos_j])
+                if not does_line_intersect_contour(line, self.obstacles) and line_is_inside_contour(line, self.walls_contour):
                     G.add_edge(i, j, weight=distances_dict[j])
 
         # Isolate the largest connected component
@@ -191,9 +281,9 @@ class Indoor_Navigation:
         # Check if start and end points can be connected directly to the path
         start_line = LineString([start_point, path_points[0]])
         end_line = LineString([end_point, path_points[-1]])
-        if not does_line_intersect_contour(start_line, self.obstacles):
+        if not does_line_intersect_contour(start_line, self.obstacles) and line_is_inside_contour(start_line, self.walls_contour):
             path_points.insert(0, start_point)
-        if not does_line_intersect_contour(end_line, self.obstacles):
+        if not does_line_intersect_contour(end_line, self.obstacles) and line_is_inside_contour(end_line, self.walls_contour):
             path_points.append(end_point)
         
         # Try skipping path points. Check if removing a point the path will pass through a contour
@@ -205,7 +295,7 @@ class Indoor_Navigation:
             if z % 2 == 0:
                 # Check from the start
                 line = LineString([path_points[i], path_points[i + 2]])
-                if not does_line_intersect_contour(line, self.obstacles):
+                if not does_line_intersect_contour(line, self.obstacles) and line_is_inside_contour(line, self.walls_contour):
                     path_points.pop(i + 1)
                     j -= 1
                 else:
@@ -213,7 +303,7 @@ class Indoor_Navigation:
             else:
                 # Check from the end
                 line = LineString([path_points[j], path_points[j - 2]])
-                if not does_line_intersect_contour(line, self.obstacles):
+                if not does_line_intersect_contour(line, self.obstacles) and line_is_inside_contour(line, self.walls_contour):
                     path_points.pop(j - 1)
                     j -= 1
                 else:
@@ -224,10 +314,21 @@ class Indoor_Navigation:
         i = 0
         while i < len(path_points) - 2:
             line = LineString([path_points[i], path_points[i + 2]])
-            if not does_line_intersect_contour(line, self.obstacles):
+            if not does_line_intersect_contour(line, self.obstacles) and line_is_inside_contour(line, self.walls_contour):
                 path_points.pop(i+1)
             else:
                 i += 1
+
+        # fill pixels between points in the path to make it smooth
+        # slice the distance between points till it is less than 10
+        # i = 0
+        # while i < len(path_points) - 1:
+        #     if np.linalg.norm(np.array(path_points[i]) - np.array(path_points[i + 1])) > 50:
+        #         inserted_point = ((path_points[i][0] + path_points[i + 1][0]) / 2, (path_points[i][1] + path_points[i + 1][1]) / 2)
+        #         path_points.insert(i + 1, inserted_point)
+        #     else:
+        #         i += 1
+
 
         if not in_pixels:
             path_points = [(x / image_shape[1], y / image_shape[0]) for(x, y) in path_points]
@@ -406,16 +507,23 @@ def does_line_intersect_contour(line, contour_polygons):
     line_obj = LineString(line)
     return any(line_obj.intersects(p) for p in contour_polygons)
 
+def line_is_inside_contour(line, contour_polygons):
+    """Function to check if a line segment is inside any contour"""
+    line_obj = LineString(line)
+    return any(line_obj.within(p) for p in contour_polygons)
+
 
 ## For testing purposes ##
 if __name__ == '__main__':
-    # navigation = Indoor_Navigation('static/floor_plan_1.jpg',
-    #                                'Demo floor plan')
-    
+    navigation = Indoor_Navigation('static/floor_plan_1.jpg',
+                                   'Demo floor plan',
+                                   grid_size=6)
+    navigation.plot_graph()
+    #navigation.plot_graph()
     # print(navigation.report())
     # navigation.plot_rooms()
-    navigation = Indoor_Navigation('static/floor_plan_1.jpg',
-                               'Demo floor plan',
-                               grid_size=10)
+    # navigation = Indoor_Navigation('static/floor_plan_1.jpg',
+    #                            'Demo floor plan',
+    #                            grid_size=10)
     #navigation.calculate_and_plot_route((0, 0), (1, 1))
     navigation.save('static/navigation.pkl')

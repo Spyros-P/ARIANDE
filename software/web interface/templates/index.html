@@ -309,15 +309,34 @@
             if (pathPoints.length < 2) return;
             lastPathPoints = pathPoints; // Store the latest path points for redraw
 
+            let smoothPathPoints = pathPoints.slice(); // Copy the path points to avoid modifying the original array
+
+            // Add points between the path points to create a smooth curve
+            // Add point if distance between two points is greater than 40 pixels
+            let i = 0;
+            while(i < smoothPathPoints.length - 1) {
+                let p1 = smoothPathPoints[i];
+                let p2 = smoothPathPoints[i + 1];
+                let distance = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]);
+                if (distance > 40) {
+                    let x = (p1[0] + p2[0]) / 2;
+                    let y = (p1[1] + p2[1]) / 2;
+                    smoothPathPoints.splice(i + 1, 0, [x, y]);
+                }
+                else {
+                    i++;
+                }
+            }
+
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             ctx.beginPath();
-            ctx.moveTo(pathPoints[0][0], pathPoints[0][1]);
-            for (let i = 0; i < pathPoints.length - 1; i++) {
-                let p0 = pathPoints[i === 0 ? i : i - 1];
-                let p1 = pathPoints[i];
-                let p2 = pathPoints[i + 1];
-                let p3 = pathPoints[i + 2] || p2;
+            ctx.moveTo(smoothPathPoints[0][0], smoothPathPoints[0][1]);
+            for (let i = 0; i < smoothPathPoints.length - 1; i++) {
+                let p0 = smoothPathPoints[i === 0 ? i : i - 1];
+                let p1 = smoothPathPoints[i];
+                let p2 = smoothPathPoints[i + 1];
+                let p3 = smoothPathPoints[i + 2] || p2;
 
                 for (let t = 0; t < 1; t += 0.1) {
                     let x = catmullRomInterpolate(p0[0], p1[0], p2[0], p3[0], t);
@@ -381,7 +400,7 @@
 
         document.getElementById('smooth-curve-switch').addEventListener('change', function() {
             if (this.checked) {
-                drawCurve = drawDiscreteCurve;
+                drawCurve = drawSmoothCurve;
             } else {
                 drawCurve = drawPoints;
             }
