@@ -36,6 +36,11 @@ body {
     /* transform: scale(2) translate(25%, 25%); */
 }
 
+/* Additional cursor style for dragging */
+#image.dragging {
+    cursor: move; /* You can use 'move' or any other cursor style that represents dragging */
+}
+
 #boxes-canvas {
     /* border: 1px solid purple; */
     position: absolute;

@@ -13,6 +13,7 @@ let ctx = canvas.getContext('2d');
 // create a list of 4-points bounding boxes
 let boxes = [];
 let pointX, pointY;
+let isDragging = false;
 
 let startX, startY;
 
@@ -39,7 +40,7 @@ image.addEventListener("wheel", (event) => {
 
     // Adjust zoom level and limit it to prevent the image from being smaller than its container
     let newZoomLevel = zoomLevel + event.deltaY * -0.002;
-    newZoomLevel = Math.min(Math.max(1, newZoomLevel), 8);  // Limit zoom level between 1x (original size) and 3x
+    newZoomLevel = Math.min(Math.max(1, newZoomLevel), 10);  // Limit zoom level between 1x (original size) and 3x
 
     // Apply new zoom level only if it's within bounds
     if (newZoomLevel !== zoomLevel) {
@@ -99,6 +100,84 @@ image.addEventListener("wheel", (event) => {
         }
     }
 });
+
+// add image move with mouse
+image.addEventListener("mousedown", (event) => {
+    image.classList.add('dragging');
+    event.preventDefault();
+    let lastX = event.clientX;
+    let lastY = event.clientY;
+
+    let isDragging = true;
+
+    document.addEventListener("mousemove", (event) => {
+        if (isDragging) {
+            const deltaX = event.clientX - lastX;
+            const deltaY = event.clientY - lastY;
+
+            const rect = image.getBoundingClientRect();
+            transoffsetX += (deltaX / rect.width) * 100;
+            transoffsetY += (deltaY / rect.height) * 100;
+
+            lefttopX = transformOriginX*(1 - 1/zoomLevel) - transoffsetX;
+            lefttopY = transformOriginY*(1 - 1/zoomLevel) - transoffsetY;
+            rightbottomX = transformOriginX*(1 - 1/zoomLevel) + 100/zoomLevel - transoffsetX;
+            rightbottomY = transformOriginY*(1 - 1/zoomLevel) + 100/zoomLevel - transoffsetY;
+
+            // check if the image is out of range
+            if(lefttopX < 0) {
+                transoffsetX = transformOriginX*(1 - 1/zoomLevel);
+            }
+            if(rightbottomX > 100) {
+                transoffsetX = transformOriginX*(1 - 1/zoomLevel) + 100/zoomLevel - 100;
+            }
+            if(lefttopY < 0) {
+                transoffsetY = transformOriginY*(1 - 1/zoomLevel);
+            }
+            if(rightbottomY > 100) {
+                transoffsetY = transformOriginY*(1 - 1/zoomLevel) + 100/zoomLevel - 100;
+            }
+
+            lastX = event.clientX;
+            lastY = event.clientY;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            image.style.transform = `scale(${zoomLevel}) translate(${transoffsetX}%, ${transoffsetY}%)`;
+
+            // draw the bounding boxes
+            redrawBoundingBoxes();
+            if (pointCount === 1) {
+                // Update transform origin based on mouse position and current zoom
+                const offsetX = event.clientX - rect.left;
+                const offsetY = event.clientY - rect.top;
+
+                // Calculate the transform origin relative to the current zoom level
+                const arrowX = (offsetX / rect.width) * 100;
+                const arrowY = (offsetY / rect.height) * 100;
+
+                // calculate the box points
+                const topLeftX = Math.min(startX, arrowX);
+                const topLeftY = Math.min(startY, arrowY);
+                const bottomRightX = Math.max(startX, arrowX);
+                const bottomRightY = Math.max(startY, arrowY);
+
+                drawBoundingBox(topLeftX, topLeftY, bottomRightX, bottomRightY); // Draw the box
+            }
+        }
+    });
+
+    document.addEventListener("mouseup", () => {
+        isDragging = false;
+        image.classList.remove('dragging');
+    });
+
+    document.addEventListener("mouseleave", () => {
+        isDragging = false;
+        image.classList.remove('dragging');
+    });
+});
+
 
 // if esc is pressed, reset the point count
 document.addEventListener("keydown", (event) => {
