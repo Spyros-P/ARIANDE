@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Image Labeling Tool</title>
+    <link rel="stylesheet" href="assets/css/labeling.css">
+</head>
+<body>
+    <div class="container" id="canvas-container">
+        <div class="image-container" id="img-container">
+            <img id="image" src="" alt="image-container" draggable="false">
+        </div>
+        <canvas id="boxes-canvas" width="640" height="640"></canvas>
+    </div>
+    <div class="button-container">
+        <button class="button" id="prev" style="vertical-align:middle"><span> Previous</span></button>
+        <button class="button" id="next" style="vertical-align:middle"><span> Next</span></button>
+    </div>
+    <script src="assets/js/labeling.js"></script>
+</body>
+</html>

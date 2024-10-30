@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, url_for
+from flask import Flask, render_template, request, jsonify, url_for, send_from_directory
 from PIL import Image, ImageDraw
 import os
 from navigation import Indoor_Navigation
@@ -12,6 +12,11 @@ app = Flask(__name__)
 @app.route('/')
 def home():
     return render_template('index.html')
+
+# Render any static file
+@app.route('/assets/<path:path>')
+def static_file(path):
+    return send_from_directory('assets', path)
 
 
 # Route to handle the coordinate submission and return the path points
@@ -35,10 +40,10 @@ def calculate_route():
 @app.route('/reload_navigation', methods=['POST'])
 def reload_navigation():
     global navigation
-    navigation = Indoor_Navigation.load('static/navigation.pkl')
+    navigation = Indoor_Navigation.load('navigation-instances/navigation.pkl')
     return jsonify({})
 
 
 if __name__ == '__main__':
-    navigation = Indoor_Navigation.load('static/navigation.pkl')
+    navigation = Indoor_Navigation.load('navigation-instances/navigation.pkl')
     app.run(debug=True)
