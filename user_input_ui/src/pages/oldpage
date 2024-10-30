@@ -1,0 +1,131 @@
+import React, { useEffect, useState, useRef } from "react";
+
+const AnnotateImage = () =>{
+    const [imageData, setImageData] = useState(null);
+    const [bboxes, setBboxes] = useState([]);
+    const [drawing, setDrawing] = useState(false);
+    const [startCoords, setStartCoords] = useState({ x: 0, y: 0 });
+    const [currentBox, setCurrentBox] = useState(null);
+    const imgRef = useRef(null); 
+
+
+    useEffect(() => {
+        fetch("/image_data.json")
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error("Network response was not ok " + response.statusText);
+                }
+                return response.json();
+            })
+            .then((data) => {
+                setImageData(data)
+                setBboxes(data.bboxes)
+            })
+            .catch((error) => console.error("Error fetching JSON:", error));
+    }, []);
+
+    const handleMouseDown = (e) => {
+        const rect = imgRef.current.getBoundingClientRect();
+        setStartCoords({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+        setDrawing(true);
+    };
+
+    const handleMouseMove = (e) => {
+        if (!drawing) return;
+        const rect = imgRef.current.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        // Calculate width and height
+        const width = x - startCoords.x;
+        const height = y - startCoords.y;
+
+        setCurrentBox({ x: startCoords.x, y: startCoords.y, width: width, height: height });
+    };
+
+    const handleMouseUp = () => {
+        if (drawing) {
+            setBboxes((prevBboxes) => [
+                ...prevBboxes,
+                currentBox
+            ]);
+            setDrawing(false);
+            setCurrentBox(null);
+            console.log(bboxes)
+        }
+    };
+
+    const handleContextMenu = (e) => {
+        e.preventDefault();
+        //if (drawing) {
+            setDrawing(false);
+            setCurrentBox(null); 
+        //}
+    };
+
+    if (!imageData) return <div>Loading...</div>;
+
+    return (
+        <div style={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            height: "100vh",
+            backgroundColor: "#f0f0f0"
+        }}>
+            <div style={{ position: "relative", display: "inline-block" }}>
+                <img
+                    ref={imgRef}
+                    src={`data:image/jpeg;base64,${imageData.image_base64}`}
+                    alt="Annotated"
+                    style={{ maxWidth: "100%", height: "auto" }}
+                    onMouseDown={handleMouseDown}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
+                    onContextMenu={handleContextMenu}
+                />
+
+                {/* Render bounding boxes */}
+                {bboxes.map((bbox, index) => (
+                    <div
+                        key={index}
+                        style={{
+                            position: "absolute",
+                            border: "2px solid red",
+                            left: bbox.x,
+                            top: bbox.y,
+                            width: bbox.width,
+                            height: bbox.height,
+                            boxSizing: "border-box",
+                            pointerEvents: "none",
+                        }}
+                    ></div>
+                ))}
+
+                {/* Render current box being drawn */}
+                {currentBox && (
+                    <div
+                        style={{
+                            position: "absolute",
+                            border: "2px solid blue", // Different color for the current box
+                            left: currentBox.x,
+                            top: currentBox.y,
+                            width: currentBox.width,
+                            height: currentBox.height,
+                            boxSizing: "border-box",
+                            pointerEvents: "none",
+                        }}
+                    ></div>
+                )}
+            </div>
+
+            {/* Display the bounding boxes state */}
+            <div style={{ marginTop: "20px" }}>
+                <h2>Bounding Boxes:</h2>
+                <pre>{JSON.stringify(bboxes, null, 2)}</pre>
+            </div>
+        </div>
+    );
+}
+
+export default AnnotateImage;
