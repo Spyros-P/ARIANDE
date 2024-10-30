@@ -10,6 +10,7 @@ const AnnotateImage = () => {
     const [currentBox, setCurrentBox] = useState(null);
     const canvasRef = useRef(null);
     const imgRef = useRef(null);
+    const [scale, setScale] = useState({ x: 1, y: 1 });
 
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [selectedBbox, setSelectedBbox] = useState(null);
@@ -17,12 +18,12 @@ const AnnotateImage = () => {
     const [isLabelModalOpen, setIsLabelModalOpen] = useState(false);
     const [newLabel, setNewLabel] = useState("door");
 
-    useEffect(() => {
+
+
+     useEffect(() => {
         fetch("/image_data.json")
             .then((response) => {
-                if (!response.ok) {
-                    throw new Error("Network response was not ok " + response.statusText);
-                }
+                if (!response.ok) throw new Error("Network response was not ok " + response.statusText);
                 return response.json();
             })
             .then((data) => {
@@ -32,57 +33,63 @@ const AnnotateImage = () => {
             .catch((error) => console.error("Error fetching JSON:", error));
     }, []);
 
-    // Function to draw the image and bounding boxes
     const drawCanvas = (ctx, img) => {
         if (ctx && img) {
             ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
             ctx.drawImage(img, 0, 0, ctx.canvas.width, ctx.canvas.height);
-    
-            // Draw existing bounding boxes and their indices
+
             bboxes.forEach((bbox, index) => {
                 ctx.strokeStyle = "red";
-                ctx.strokeRect(bbox.x, bbox.y, bbox.width, bbox.height);
-    
-                // Calculate position for the text
-                const textX = bbox.x + 5;
-                let textY = bbox.y - 5; // Try to position above by default
-    
-                // If positioning above would be outside the canvas, position below
-                if (textY < 0) {
-                    textY = bbox.y + bbox.height + 15; // Adjust to be below the box
-                }
-    
-                ctx.fillStyle = "red"; // Text color
-                ctx.font = "16px Arial"; // Font size and family
-                ctx.fillText(index + 1, textX, textY); // Draw the index at the calculated position
+                ctx.strokeRect(
+                    bbox.x * scale.x,
+                    bbox.y * scale.y,
+                    bbox.width * scale.x,
+                    bbox.height * scale.y
+                );
+                
+                const textX = bbox.x * scale.x + 5;
+                const textY = (bbox.y * scale.y - 5) > 0 ? bbox.y * scale.y - 5 : bbox.y * scale.y + bbox.height * scale.y + 15;
+                ctx.fillStyle = "red";
+                ctx.font = "16px Arial";
+                ctx.fillText(index + 1, textX, textY);
             });
-    
-            // Draw the current box being created
+
             if (currentBox) {
-                ctx.strokeStyle = "blue"; // Different color for the current box
-                ctx.strokeRect(currentBox.x, currentBox.y, currentBox.width, currentBox.height);
+                ctx.strokeStyle = "blue";
+                ctx.strokeRect(
+                    currentBox.x * scale.x,
+                    currentBox.y * scale.y,
+                    currentBox.width * scale.x,
+                    currentBox.height * scale.y
+                );
             }
         }
     };
-    
 
     useEffect(() => {
         const canvas = canvasRef.current;
         const ctx = canvas?.getContext("2d");
         const img = imgRef.current;
-    
+
         if (img) {
             img.onload = () => {
-                // Set canvas dimensions to match image
-                canvas.width = img.naturalWidth; // Use naturalWidth
-                canvas.height = img.naturalHeight; // Use naturalHeight
-                drawCanvas(ctx, img); // Draw the image and boxes after loading
+                setScale({
+                    x: 750 / img.naturalWidth,
+                    y: 750 / img.naturalWidth
+                });
+                
+                canvas.width = 750;
+                canvas.height = img.naturalHeight * (750 / img.naturalWidth);
+                drawCanvas(ctx, img);
             };
-    
-            // Redraw if image is already loaded
+
             if (img.complete) {
-                canvas.width = img.naturalWidth;
-                canvas.height = img.naturalHeight;
+                setScale({
+                    x: 750 / img.naturalWidth,
+                    y: 750 / img.naturalWidth
+                });
+                canvas.width = 750;
+                canvas.height = img.naturalHeight * (750 / img.naturalWidth);
                 drawCanvas(ctx, img);
             }
         }
@@ -90,21 +97,30 @@ const AnnotateImage = () => {
 
     const handleMouseDown = (e) => {
         const rect = canvasRef.current.getBoundingClientRect();
-        setStartCoords({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+        setStartCoords({
+            x: (e.clientX - rect.left) / scale.x,
+            y: (e.clientY - rect.top) / scale.y
+        });
         setDrawing(true);
     };
 
     const handleMouseMove = (e) => {
         if (!drawing) return;
         const rect = canvasRef.current.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+        const x = (e.clientX - rect.left) / scale.x;
+        const y = (e.clientY - rect.top) / scale.y;
 
-        // Calculate width and height
         const width = x - startCoords.x;
         const height = y - startCoords.y;
 
-        setCurrentBox({ x: startCoords.x, y: startCoords.y, width, height, id: (Date.now()-Math.floor(Math.random() * 10000)), source: "user" });
+        setCurrentBox({
+            x: startCoords.x,
+            y: startCoords.y,
+            width,
+            height,
+            id: Date.now() - Math.floor(Math.random() * 10000),
+            source: "user"
+        });
     };
 
     const handleMouseUp = () => {
@@ -156,13 +172,7 @@ const AnnotateImage = () => {
                 ...prevBboxes,
                 newBbox
             ]);
-        // setBboxes((prevBboxes) => 
-        //     prevBboxes.map((bbox) => 
-        //         bbox.id === currentBox.id 
-        //             ? { ...bbox, label: newLabel }
-        //             : bbox
-        //     )
-        // );
+
         setCurrentBox(null);
         closeLabelModal();
     };
@@ -178,8 +188,9 @@ const AnnotateImage = () => {
             }}>
             <div style={{ position: "relative", display: "inline-block", paddingRight: "20px" }}>
                 <canvas
+                    id="boxes-canvas"
                     ref={canvasRef}
-                    style={{ border: "1px solid black", cursor: "crosshair" }}
+                    style={{ border: "1px solid black", cursor: "crosshair", width: "750px" }}
                     onMouseDown={handleMouseDown}
                     onMouseMove={handleMouseMove}
                     onMouseUp={handleMouseUp}
@@ -273,7 +284,7 @@ const AnnotateImage = () => {
                                 <h3 style={{ margin: "0 0 5px", color: "#495057" }}>Object #{consistentIndex + 1} : {bbox.label}</h3>
                                 <h4 style={{ margin: "0 0 10px", color: "#6c757d" }}>Width: {bbox.width}</h4>
                                 <h4 style={{ margin: "0 0 10px", color: "#6c757d" }}>Height: {bbox.height}</h4>
-                                <h4 style={{ margin: "0 0 10px", color: "#6c757d" }}>Start Coordinates: ({bbox.x.toFixed(1)}, {bbox.y.toFixed(1)})</h4>
+                                <h4 style={{ margin: "0 0 10px", color: "#6c757d" }}>Start Coordinates: ({(bbox.x).toFixed(1)}, {(bbox.y).toFixed(1)})</h4>
                                 <button onClick={() => openDeleteModal(bbox)} style={{
                                     backgroundColor: "#f8d7da",
                                     color: "#721c24",
