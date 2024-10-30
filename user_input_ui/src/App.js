@@ -1,6 +1,7 @@
 import React, { Component } from "react";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import AnnotateImage from './pages/AnnotateImage.jsx'
+import ImageAnnotator from './pages/ImageAnnotator.jsx'
 import './App.css'
 
 const router = createBrowserRouter([
@@ -9,6 +10,14 @@ const router = createBrowserRouter([
     element: (
       <React.Fragment>
         <AnnotateImage />
+      </React.Fragment>
+    ),
+  },
+  {
+    path: "/annotator",
+    element: (
+      <React.Fragment>
+        <ImageAnnotator />
       </React.Fragment>
     ),
   },

@@ -12,7 +12,7 @@ def encode_image_to_base64(image_path):
         img_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
     return img_base64, width, height
 
-image_path = "../assets/dummy_img.jpg" 
+image_path = "../assets/hospital_1.jpg" 
 encoded_image, img_width, img_height = encode_image_to_base64(image_path)
 
 def create_random_bboxes(num_bboxes, max_width, max_height):
@@ -45,3 +45,4 @@ with open("../public/image_data.json", "w") as json_file:
     json.dump(data, json_file)
 
 print("Image and bounding boxes saved to image_data_with_bboxes.json")
+print(data["bboxes"])
