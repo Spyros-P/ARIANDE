@@ -1,0 +1,107 @@
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    margin-top: 50px;
+    position: relative;
+}
+
+.container {
+    position: relative;
+    display: inline-block;
+    user-select: none;
+    /* set margin */
+    /* margin: 40px; */
+}
+
+.button-container {
+    display: flex;
+    align-items: center; /* Vertically aligns items in the center */
+    justify-content: center; /* Centers content horizontally */
+}
+
+.image-container {
+    width: 640px;  /* Set desired width */
+    height: 640px; /* Set desired height */
+    overflow: hidden; /* Hide overflow to create the "cut" effect */
+    display: inline-block;
+    position: relative;
+}
+
+#image {
+    /* transition: transform 0.05s ease, transform-origin 0.05s ease; */
+    cursor: crosshair;
+    /* transfrom origin set to top left corner */
+    transform-origin: 50% 50%;
+    /* scale the image to 1.5 times and translate it to the center */
+    /* transform: scale(2) translate(25%, 25%); */
+}
+
+#boxes-canvas {
+    /* border: 1px solid purple; */
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    /* height: 100%;
+    width: 100%; */
+}
+
+.button {
+    display: inline-block;
+    border-radius: 4px;
+    background-color: #008CBA;
+    border: none;
+    color: #FFFFFF;
+    text-align: center;
+    font-size: 24px;
+    padding: 20px;
+    width: 200px;
+    transition: all 0.5s;
+    cursor: pointer;
+    margin: 5px;
+}
+
+.button span {
+    cursor: pointer;
+    display: inline-block;
+    position: relative;
+    transition: 0.5s;
+}
+  
+
+#next span:after {
+    content: '\00bb';
+    position: absolute;
+    opacity: 0;
+    top: 0;
+    right: -20px;
+    transition: 0.5s;
+}
+  
+#next:hover span {
+    padding-right: 25px;
+}
+  
+#next:hover span:after {
+    opacity: 1;
+    right: 0;
+}
+
+
+#prev span:after {
+    content: '\00ab';
+    position: absolute;
+    opacity: 0;
+    top: 0;
+    left: -20px;
+    transition: 0.5s;
+}
+  
+#prev:hover span {
+    padding-left: 25px;
+}
+  
+#prev:hover span:after {
+    opacity: 1;
+    left: 0;
+}
