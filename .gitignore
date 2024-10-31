@@ -3,7 +3,9 @@ __pycache__
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-./user_input/node_modules/*
+./user_input_ui/node_modules/*
+./mobile_app/node_modules/
+./mobile_app/.expo/
 /.pnp
 .pnp.js
 
