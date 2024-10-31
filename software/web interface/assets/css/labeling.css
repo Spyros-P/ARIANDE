@@ -110,3 +110,56 @@ body {
     opacity: 1;
     left: 0;
 }
+
+
+/* Add styles for the left-side button container */
+.right-button-container {
+    position: absolute;
+    top: 50px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.right-button-container .button {
+    font-size: 24px;
+    padding: 16px 32px;
+    width: 220px;
+    background-color: white;
+    color: black;
+    border-radius: 4px;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    margin: 4px 2px;
+    transition-duration: 0.4s;
+}
+
+#button1 {
+    border: 2px solid blue;
+}
+
+#button1:hover {
+    background-color: blue;
+    color: white;
+}
+
+#button2 {
+    border: 2px solid orange;
+}
+
+#button2:hover {
+    background-color: orange;
+    color: white;
+}
+
+#button3 {
+    border: 2px solid green;
+}
+
+#button3:hover {
+    background-color: green;
+    color: white;
+}

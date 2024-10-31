@@ -14,6 +14,10 @@ let ctx = canvas.getContext('2d');
 let boxes = [];
 let pointX, pointY;
 let isDragging = false;
+let imageIndex=0;
+let colors  = ["blue", "orange", "green", "red", "purple", "brown", "pink", "gray", "cyan", "magenta"];
+
+let object_id = 0;
 
 let startX, startY;
 
@@ -96,7 +100,7 @@ image.addEventListener("wheel", (event) => {
             const bottomRightX = Math.max(startX, arrowX);
             const bottomRightY = Math.max(startY, arrowY);
             
-            drawBoundingBox(topLeftX, topLeftY, bottomRightX, bottomRightY); // Draw the box
+            drawBoundingBox(topLeftX, topLeftY, bottomRightX, bottomRightY, colors[object_id]); // Draw the box
         }
     }
 });
@@ -162,7 +166,7 @@ image.addEventListener("mousedown", (event) => {
                 const bottomRightX = Math.max(startX, arrowX);
                 const bottomRightY = Math.max(startY, arrowY);
 
-                drawBoundingBox(topLeftX, topLeftY, bottomRightX, bottomRightY); // Draw the box
+                drawBoundingBox(topLeftX, topLeftY, bottomRightX, bottomRightY, colors[object_id]); // Draw the box
             }
         }
     });
@@ -178,6 +182,32 @@ image.addEventListener("mousedown", (event) => {
     });
 });
 
+image.addEventListener("click", (event) => {
+    // Update transform origin based on mouse position and current zoom
+    const rect = image.getBoundingClientRect();
+    const offsetX = event.clientX - rect.left;
+    const offsetY = event.clientY - rect.top;
+
+    // Calculate the transform origin relative to the current zoom level
+    const arrowX = (offsetX / rect.width) * 100;
+    const arrowY = (offsetY / rect.height) * 100;
+
+    // Check if the click is on right top corner of a bounding box
+    let deleted = false;
+    for (let i = 0; i < boxes.length; i++) {
+        let box = boxes[i];
+        if (arrowX > box.x2 - 1 && arrowX < box.x2 + 1 && arrowY > box.y1 - 1 && arrowY < box.y1 + 1) {
+            // remove the box
+            boxes.splice(i, 1);
+            i -= 1;
+            deleted = true;
+            deleteBoundingBox(box.id, box.x1, box.y1, box.x2, box.y2);
+        }
+    }
+    if (deleted) {
+        redrawBoundingBoxes();
+    }
+});
 
 // if esc is pressed, reset the point count
 document.addEventListener("keydown", (event) => {
@@ -206,7 +236,7 @@ image.addEventListener("mousemove", (event) => {
         const bottomRightX = Math.max(startX, arrowX);
         const bottomRightY = Math.max(startY, arrowY);
         
-        drawBoundingBox(topLeftX, topLeftY, bottomRightX, bottomRightY); // Draw the box
+        drawBoundingBox(topLeftX, topLeftY, bottomRightX, bottomRightY, colors[object_id]); // Draw the box
     }
 });
 
@@ -214,7 +244,7 @@ function redrawBoundingBoxes() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     for (let i = 0; i < boxes.length; i++) {
         let box = boxes[i];
-        drawBoundingBox(box.x1, box.y1, box.x2, box.y2);
+        drawBoundingBox(box.x1, box.y1, box.x2, box.y2, colors[box.id]);
     }
 }
 
@@ -245,10 +275,13 @@ image.addEventListener("contextmenu", (event) => {
         const bottomRightX = Math.max(startX, arrowX);
         const bottomRightY = Math.max(startY, arrowY);
 
-        boxes.push({ x1: topLeftX, y1: topLeftY, x2: bottomRightX, y2: bottomRightY });
+        boxes.push({ id: object_id, x1: topLeftX, y1: topLeftY, x2: bottomRightX, y2: bottomRightY });
         
-        drawBoundingBox(topLeftX, topLeftY, bottomRightX, bottomRightY); // Draw the box
+        drawBoundingBox(topLeftX, topLeftY, bottomRightX, bottomRightY, colors[object_id]); // Draw the box
         pointCount = 0; // Reset for the next bounding box
+
+        // make a post request to save the bounding box
+        saveBoundingBox(object_id, topLeftX, topLeftY, bottomRightX, bottomRightY);
     }
 });
 
@@ -285,7 +318,7 @@ function plotPoint(x, y, color) {
 }
 
 // Function to draw a bounding box on the image
-function drawBoundingBox(x1, y1, x2, y2) {
+function drawBoundingBox(x1, y1, x2, y2, color) {
     let lefttopX = transformOriginX*(1 - 1/zoomLevel) - transoffsetX;
     let lefttopY = transformOriginY*(1 - 1/zoomLevel) - transoffsetY;
 
@@ -307,36 +340,106 @@ function drawBoundingBox(x1, y1, x2, y2) {
     ctx.lineTo(x2, y2);
     ctx.lineTo(x1, y2);
     ctx.lineTo(x1, y1);
-    ctx.strokeStyle = 'blue';
+    ctx.strokeStyle = color;
     ctx.lineWidth = 2;
     ctx.stroke();
+
+    // draw the top right corner
+    ctx.beginPath();
+    ctx.arc(x2, y1, 7, 0, 2 * Math.PI);
+    ctx.fillStyle = 'red';
+    ctx.fill();
 }
 
-function saveBoundingBox(x1, y1, x2, y2) {
-    fetch("/save_bbox", {
+function saveBoundingBox(object_id, x1, y1, x2, y2) {
+    centerx = (x1 + x2) / 200;
+    centery = (y1 + y2) / 200;
+    width = (x2 - x1) / 100;
+    height = (y2 - y1) / 100;
+    fetch("/save_box", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
         },
         body: JSON.stringify({
-            bbox: {x1: x1, y1: y1, x2: x2, y2: y2},
+            box: { object_id, centerx, centery, width, height },
+            image_index: imageIndex,
         }),
     }).then(response => response.json()).then(data => {
         console.log("Bounding box saved:", data);
     });
 }
 
-document.getElementById("next").addEventListener("click", () => {
-    fetch("/next_image", { method: "GET" })
-        .then(response => response.blob())
-        .then(blob => {
-            const image = document.getElementById("image");
-            const url = URL.createObjectURL(blob);
-            image.src = url;
+function deleteBoundingBox(object_id, x1, y1, x2, y2) {
+    centerx = (x1 + x2) / 200;
+    centery = (y1 + y2) / 200;
+    width = (x2 - x1) / 100;
+    height = (y2 - y1) / 100;
+    fetch("/delete_box", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            box: { object_id, centerx, centery, width, height },
+            image_index: imageIndex,
+        }),
+    }).then(response => response.json()).then(data => {
+        console.log("Bounding box saved:", data);
+    });
+}
+
+// Add event listeners to the left-side buttons to change the object_id
+document.querySelectorAll('.right-button-container .button').forEach(button => {
+    button.addEventListener('click', () => {
+        // set old object_id button's background to white
+        let old_object_id = object_id;
+        let old_button = document.querySelector(`.right-button-container .button[data-object-id="${old_object_id}"]`);
+        if (old_button) {
+            old_button.style.backgroundColor = ''; // Reset to default background color
+            old_button.style.color = ''; // Reset to default text color
+        }
+        object_id = button.getAttribute('data-object-id');
+        // add permanent hover effect to the selected button
+        button.style.backgroundColor = colors[object_id];
+        button.style.color = 'white';
+    });
+});
+
+function get_image(url) {
+    fetch(url, { method: "GET" })
+        .then(response => response.json())
+        .then(data => {
+            // Fetch the image as a blob
+            fetch(data.image_url)
+                .then(response => response.blob())
+                .then(blob => {
+                    const imageUrl = URL.createObjectURL(blob);
+                    image.src = imageUrl;
+                    imageIndex = data.image_index;
+
+                    // Update boxes according to data.boxes
+                    boxes = [];
+                    data.boxes.forEach(box => {
+                        // Unpack the box which is a JSON object
+                        const centerx = parseFloat(box[1])*100;
+                        const centery = parseFloat(box[2])*100;
+                        const width = parseFloat(box[3])*100;
+                        const height = parseFloat(box[4])*100;
+                        
+                        let topLeftX = centerx - width/2;
+                        let topLeftY = centery - height/2;
+                        let bottomRightX = centerx + width/2;
+                        let bottomRightY = centery + height/2;
+                        boxes.push({ id: parseInt(box[0]), x1: topLeftX, y1: topLeftY, x2: bottomRightX, y2: bottomRightY });
+                    });
+                })
+                .catch(error => console.error('Error fetching image blob:', error));
         })
-        .catch(error => console.error('Error fetching next image:', error));
-    
-    boxes = [];
+        .catch(error => console.error('Error fetching next image data:', error));
+
+    pointCount = 0;
+    isDragging = false;
     transformOriginX = 50;
     transformOriginY = 50;
     transoffsetX = 0;
@@ -344,7 +447,6 @@ document.getElementById("next").addEventListener("click", () => {
     zoomLevel = 1;
     image.style.transformOrigin = `${transformOriginX}% ${transformOriginY}%`;
     image.style.transform = `scale(${zoomLevel}) translate(${transoffsetX}%, ${transoffsetY}%)`;
-    redrawBoundingBoxes();
 
     image.onload = () => {
         // resize the canvas according to the image size
@@ -357,42 +459,22 @@ document.getElementById("next").addEventListener("click", () => {
         let container = document.getElementById('img-container');
         container.style.width = `${imageWidth}px`;
         container.style.height = `${imageHeight}px`;
+
+        redrawBoundingBoxes();
     }
+}
+
+document.getElementById("next").addEventListener("click", () => {
+    get_image(`/next_image?image_index=${imageIndex}`);
 });
 
 document.getElementById("prev").addEventListener("click", () => {
-    fetch("/prev_image", { method: "GET" })
-        .then(response => response.blob())
-        .then(blob => {
-            const image = document.getElementById("image");
-            const url = URL.createObjectURL(blob);
-            image.src = url;
-        })
-        .catch(error => console.error('Error fetching previous image:', error));
-    
-    boxes = [];
-    transformOriginX = 50;
-    transformOriginY = 50;
-    transoffsetX = 0;
-    transoffsetY = 0;
-    zoomLevel = 1;
-    image.style.transformOrigin = `${transformOriginX}% ${transformOriginY}%`;
-    image.style.transform = `scale(${zoomLevel}) translate(${transoffsetX}%, ${transoffsetY}%)`;
-    redrawBoundingBoxes();
-
-    image.onload = () => {
-        // resize the canvas according to the image size
-        let imageWidth = image.width;
-        let imageHeight = image.height;
-        canvas.width = imageWidth;
-        canvas.height = imageHeight;
-
-        // change the image-container size
-        let container = document.getElementById('img-container');
-        container.style.width = `${imageWidth}px`;
-        container.style.height = `${imageHeight}px`;
-    }
+    get_image(`/prev_image?image_index=${imageIndex}`);
 });
 
 // auto load the first image
-document.getElementById("next").click();
+get_image("/first_image");
+
+let first_button = document.querySelector(`.right-button-container .button[data-object-id="${object_id}"]`);
+first_button.style.backgroundColor = colors[object_id];
+first_button.style.color = 'white';
