@@ -1,7 +1,8 @@
 {
   "expo": {
-    "name": "mobile-app",
-    "slug": "mobile-app",
+    "jsEngine": "hermes",
+    "name": "hipeac-mobile-app",
+    "slug": "hipeac-mobile-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -12,6 +13,7 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
+      "jsEngine": "jsc",
       "supportsTablet": true
     },
     "android": {
@@ -22,6 +24,9 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-asset"
+    ]
   }
 }
