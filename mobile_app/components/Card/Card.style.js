@@ -4,10 +4,13 @@ export const styles = StyleSheet.create({
   container: {},
   deleteIcon: {
     color: "rgb(248, 140, 140)",
-    position: "absolute",
-    right: "7%",
-    bottom: "10%",
     transform: "scale(1.25)",
+  },
+  deleteIconContainer: {
+    position: "absolute",
+    right: 0,
+    bottom: 0,
+    padding: 15,
   },
   downloadIcon: {
     color: "rgb(232, 234, 235)",
@@ -15,6 +18,18 @@ export const styles = StyleSheet.create({
     right: "7%",
     bottom: "10%",
     transform: "scale(1.25)",
+  },
+  mapIcon: {
+    transform: "scale(1.1)",
+    color: "rgb(175, 245, 233)",
+  },
+  mapIconContainer: {
+    position: "absolute",
+    right: "7%",
+    top: "10%",
+    backgroundColor: "#07615970",
+    borderRadius: 50,
+    padding: 8,
   },
   buildingImage: {
     width: "100%",

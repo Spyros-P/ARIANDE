@@ -7,6 +7,7 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { styles } from "./App.style";
 import { useFonts } from "expo-font";
 import { initializeDB } from "./db/db_utils";
+import { useState } from "react";
 const Stack = createNativeStackNavigator();
 
 const navTheme = {
@@ -16,24 +17,43 @@ const navTheme = {
 };
 
 export default function App() {
+  const [currentBackgroundColor, setCurrentBackgroundColor] = useState("white");
   const [isFontLoaded] = useFonts({
     CaviarDreams: require("./assets/fonts/CaviarDreams.ttf"),
     Caviar_Dreams_Bold: require("./assets/fonts/Caviar_Dreams_Bold.ttf"),
     SourGummy_Bold: require("./assets/fonts/SourGummy-Bold.ttf"),
     SourGummy_Regular: require("./assets/fonts/SourGummy-Regular.ttf"),
   });
+  const provideYourScreenName = (screenName) => {
+    setCurrentBackgroundColor(
+      screenName === "MainPage" ? "white" : "rgb(29, 32, 31)"
+    );
+  };
   return (
     <NavigationContainer theme={navTheme}>
       <SafeAreaProvider>
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView
+          style={[
+            styles.container,
+            { backgroundColor: currentBackgroundColor },
+          ]}
+        >
           <SQLiteProvider databaseName="hipeac.db" onInit={initializeDB}>
             {isFontLoaded && (
               <Stack.Navigator
                 screenOptions={{ headerShown: false }}
                 initialRouteName="Library"
               >
-                <Stack.Screen name="MainPage" component={MainPage} />
-                <Stack.Screen name="Library" component={Library} />
+                <Stack.Screen name="MainPage">
+                  {() => (
+                    <MainPage provideYourScreenName={provideYourScreenName} />
+                  )}
+                </Stack.Screen>
+                <Stack.Screen name="Library">
+                  {() => (
+                    <Library provideYourScreenName={provideYourScreenName} />
+                  )}
+                </Stack.Screen>
               </Stack.Navigator>
             )}
           </SQLiteProvider>

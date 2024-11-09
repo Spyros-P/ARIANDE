@@ -6,6 +6,11 @@ export const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 10,
     justifyContent: "center",
+    minWidth: "100%",
+
+    backgroundColor: "rgb(42, 51, 49)",
+    padding: 15,
+    borderRadius: 20,
   },
   cardItem: { height: 120, width: "45%" },
 });
