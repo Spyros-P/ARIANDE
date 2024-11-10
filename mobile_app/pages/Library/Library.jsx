@@ -4,26 +4,77 @@ import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import { faArrowLeft } from "@fortawesome/free-solid-svg-icons/faArrowLeft";
 import { Alert, TouchableOpacity, View } from "react-native";
 import { CardList } from "../../components/CardList/CardList";
-import { useEffect, useState } from "react";
-import { deleteCardById, fetchMyMaps } from "../../db/db_queries";
+import React, { useEffect, useState } from "react";
+import {
+  deleteCardById,
+  downloadNewBuilding,
+  fetchMyMaps,
+} from "../../db/db_queries";
 import { BuildingsSearchBar } from "../../components/BuildingsSearchBar/BuildingsSearchBar";
 import { styles } from "./Library.style";
 import { Txt } from "../../components/Txt/Txt";
-export function Library({ provideYourScreenName }) {
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { fetchDownloadableBuildings } from "../../api/strapi-calls";
+export function Library({ downloadMorePage, provideYourScreenName }) {
   const db = useSQLiteContext();
+  const navigation = useNavigation();
   const [cards, setCards] = useState([]);
   const [filteredCards, setFilteredCards] = useState([]);
   const [filterText, setFilterText] = useState("");
   const [cardDeleted, setCardDeleted] = useState(false);
+  const [focusAgain, setfocusAgain] = useState(false);
+  const [errorToFetchData, setErrorToFetchData] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      setfocusAgain((prevState) => !prevState);
+    }, [])
+  );
+
   useEffect(() => {
     provideYourScreenName("Library");
-    const callFetchMaps = async () => {
-      const myMaps = await fetchMyMaps(db);
-      setCards(myMaps);
-      setFilteredCards(myMaps);
+    const callFetchMyMaps = async () => {
+      try {
+        const myMaps = await fetchMyMaps(db);
+        setCards(myMaps);
+        setFilteredCards(myMaps);
+        setErrorToFetchData("");
+      } catch (error) {
+        setErrorToFetchData(
+          "Error when trying to load your buildings. Try again!"
+        );
+      }
     };
-    callFetchMaps();
-  }, [cardDeleted]);
+    const fetchBuildingsToDownload = async () => {
+      try {
+        setIsLoading(true);
+        const myMaps = await fetchMyMaps(db);
+        var buildingsToDownload = await fetchDownloadableBuildings();
+        buildingsToDownload = buildingsToDownload.map((candidateBuilding) => {
+          if (
+            myMaps.some(
+              (savedBuilding) => savedBuilding.id === candidateBuilding.id
+            )
+          ) {
+            return { ...candidateBuilding, alreadySaved: true };
+          } else {
+            return { ...candidateBuilding };
+          }
+        });
+        setCards(buildingsToDownload);
+        setFilteredCards(buildingsToDownload);
+        setErrorToFetchData("");
+        setIsLoading(false);
+      } catch (error) {
+        setErrorToFetchData(
+          "Error when trying to load the available buildings. Try again!"
+        );
+        setIsLoading(false);
+      }
+    };
+    !downloadMorePage ? callFetchMyMaps() : fetchBuildingsToDownload();
+  }, [cardDeleted, focusAgain]);
 
   useEffect(() => {
     const filteredMaps = cards.filter(
@@ -90,19 +141,58 @@ export function Library({ provideYourScreenName }) {
       }
     );
 
+  const storeNewBuilding = async (id, name, image, lat, lon) => {
+    const downloadingCardIndex = filteredCards.findIndex(
+      (card) => card.id === id
+    );
+    var newDownloadingCard = {
+      ...filteredCards.find((card) => card.id === id),
+      downloading: true,
+      downloaded: false,
+    };
+    filteredCards[downloadingCardIndex] = newDownloadingCard;
+    setFilteredCards([...filteredCards]);
+    await downloadNewBuilding(db, id, name, image, lat, lon);
+    setTimeout(() => {
+      newDownloadingCard = {
+        ...newDownloadingCard,
+        downloaded: true,
+        downloading: false,
+      };
+      filteredCards[downloadingCardIndex] = newDownloadingCard;
+      setFilteredCards([...filteredCards]);
+    }, 750);
+  };
+
   return (
     <View style={styles.container}>
-      <FontAwesomeIcon icon={faArrowLeft} style={styles.backIcon} />
-      <BuildingsSearchBar setFilterText={setFilterText} />
-      <CardList
-        cards={filteredCards}
-        alreadySaved={true}
-        onDeleteCard={deleteItemShowAlert}
-        onSelectCard={selectCardShowAlert}
-      />
-      <TouchableOpacity style={styles.downloadButton}>
-        <Txt style={styles.downloadMoreText}>Download more</Txt>
+      <TouchableOpacity
+        style={styles.backIconContainer}
+        onPress={navigation.goBack}
+      >
+        <FontAwesomeIcon icon={faArrowLeft} style={styles.backIcon} />
       </TouchableOpacity>
+      <BuildingsSearchBar setFilterText={setFilterText} />
+      {isLoading && <Txt style={styles.text}>Loading...</Txt>}
+      {!errorToFetchData ? (
+        <CardList
+          downloadMorePage={downloadMorePage}
+          cards={filteredCards}
+          onDeleteCard={deleteItemShowAlert}
+          onSelectCard={selectCardShowAlert}
+          storeNewBuilding={storeNewBuilding}
+        />
+      ) : (
+        <Txt style={styles.text}>{errorToFetchData}</Txt>
+      )}
+      {!downloadMorePage && (
+        <TouchableOpacity
+          style={styles.downloadButton}
+          onPress={() => navigation.navigate("DownloadMorePage")}
+        >
+          <Txt style={styles.text}>Download more</Txt>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
