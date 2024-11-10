@@ -8,12 +8,14 @@ export const styles = StyleSheet.create({
     gap: 30,
   },
   backIcon: {
-    alignSelf: "flex-start",
     transform: "scale(2)",
+    color: "rgb(195, 226, 221)",
+  },
+  backIconContainer: {
+    alignSelf: "flex-start",
     position: "relative",
     top: 10,
     left: 10,
-    color: "rgb(195, 226, 221)",
   },
   downloadButton: {
     width: "100%",
@@ -23,7 +25,7 @@ export const styles = StyleSheet.create({
     backgroundColor: "rgb(97, 122, 118)",
     alignItems: "center",
   },
-  downloadMoreText: {
+  text: {
     fontFamily: "SourGummy_Regular",
     fontSize: 20,
     color: "#ecfafa",

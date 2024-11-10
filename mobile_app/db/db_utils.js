@@ -1,4 +1,4 @@
-import { imageToBase64 } from "../utils/imageToBase64";
+import { localImageToBase64 } from "../utils/imageToBase64";
 import locationImage1 from "../assets/myMapsImages/Pic holder.png";
 import locationImage2 from "../assets/myMapsImages/otherBuilding.jpeg";
 import locationImage3 from "../assets/myMapsImages/otherBuilding2.jpg";
@@ -29,7 +29,7 @@ export async function initializeDB(db) {
     // dropMyMaps(db);
     await db.runAsync(`
       CREATE TABLE IF NOT EXISTS myMaps (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id INTEGER PRIMARY KEY,
         name TEXT NOT NULL,
         imageBase64 TEXT NOT NULL,
         lon INTEGER NOT NULL,
@@ -37,131 +37,131 @@ export async function initializeDB(db) {
       );
         `);
     const allRows = await db.getAllAsync("SELECT * FROM myMaps");
-    if (allRows.length === 0) {
-      const statement = await db.prepareAsync(
-        "INSERT INTO myMaps (name, imageBase64, lon, lat) VALUES ($name, $image, $lon, $lat)"
-      );
-      await statement.executeAsync({
-        $name: "Hospital Kati",
-        $image: `${await imageToBase64(
-          await computeURIOfLocalImageAsset(locationImage1)
-        )}`,
-        $lat: "37.9977728",
-        $lon: "23.7345643",
-      });
-      await statement.executeAsync({
-        $name: "Ktirio allo",
-        $image: `${await imageToBase64(
-          await computeURIOfLocalImageAsset(locationImage2)
-        )}`,
-        $lat: "39.0047165",
-        $lon: "23.3272946",
-      });
-      await statement.executeAsync({
-        $name: "Ena ktirio kalo",
-        $image: `${await imageToBase64(
-          await computeURIOfLocalImageAsset(locationImage3)
-        )}`,
-        $lat: "56.5940331",
-        $lon: "-3.5344667",
-      });
-      await statement.executeAsync({
-        $name: "Ena ktirio megalo",
-        $image: `${await imageToBase64(
-          await computeURIOfLocalImageAsset(locationImage4)
-        )}`,
-        $lat: "-3.5159044",
-        $lon: "23.5801791",
-      });
-      await statement.executeAsync({
-        $name: "Ktirio ki auto",
-        $image: `${await imageToBase64(
-          await computeURIOfLocalImageAsset(locationImage4)
-        )}`,
-        $lat: "-3.5159044",
-        $lon: "23.5801791",
-      });
-      await statement.executeAsync({
-        $name: "buidling me onoma",
-        $image: `${await imageToBase64(
-          await computeURIOfLocalImageAsset(locationImage4)
-        )}`,
-        $lat: "-3.5159044",
-        $lon: "23.5801791",
-      });
-      await statement.executeAsync({
-        $name: "Megaro mousikis",
-        $image: `${await imageToBase64(
-          await computeURIOfLocalImageAsset(locationImage4)
-        )}`,
-        $lat: "-3.5159044",
-        $lon: "23.5801791",
-      });
-      await statement.executeAsync({
-        $name: "Stathos trainwn",
-        $image: `${await imageToBase64(
-          await computeURIOfLocalImageAsset(locationImage4)
-        )}`,
-        $lat: "-3.5159044",
-        $lon: "23.5801791",
-      });
-      await statement.executeAsync({
-        $name: "Stathmos lewforeiwn",
-        $image: `${await imageToBase64(
-          await computeURIOfLocalImageAsset(locationImage4)
-        )}`,
-        $lat: "-3.5159044",
-        $lon: "23.5801791",
-      });
-      await statement.executeAsync({
-        $name: "Akona ena ktirio",
-        $image: `${await imageToBase64(
-          await computeURIOfLocalImageAsset(locationImage4)
-        )}`,
-        $lat: "-3.5159044",
-        $lon: "23.5801791",
-      });
-      await statement.executeAsync({
-        $name: "Ki auto ktirio",
-        $image: `${await imageToBase64(
-          await computeURIOfLocalImageAsset(locationImage4)
-        )}`,
-        $lat: "-3.5159044",
-        $lon: "23.5801791",
-      });
-      await statement.executeAsync({
-        $name: "Stathmos allos",
-        $image: `${await imageToBase64(
-          await computeURIOfLocalImageAsset(locationImage4)
-        )}`,
-        $lat: "-3.5159044",
-        $lon: "23.5801791",
-      });
-      await statement.executeAsync({
-        $name: "Enas akomi titlos",
-        $image: `${await imageToBase64(
-          await computeURIOfLocalImageAsset(locationImage4)
-        )}`,
-        $lat: "-3.5159044",
-        $lon: "23.5801791",
-      });
-      await statement.executeAsync({
-        $name: "Hello there",
-        $image: `${await imageToBase64(
-          await computeURIOfLocalImageAsset(locationImage4)
-        )}`,
-        $lat: "-3.5159044",
-        $lon: "23.5801791",
-      });
-      await statement.executeAsync({
-        $name: "Goodmorning",
-        $image: `${await imageToBase64(
-          await computeURIOfLocalImageAsset(locationImage4)
-        )}`,
-        $lat: "-3.5159044",
-        $lon: "23.5801791",
-      });
-    }
+    // if (allRows.length === 0) {
+    //   const statement = await db.prepareAsync(
+    //     "INSERT INTO myMaps (name, imageBase64, lon, lat) VALUES ($name, $image, $lon, $lat)"
+    //   );
+    //   await statement.executeAsync({
+    //     $name: "Hospital Kati",
+    //     $image: `${await localImageToBase64(
+    //       await computeURIOfLocalImageAsset(locationImage1)
+    //     )}`,
+    //     $lat: "37.9977728",
+    //     $lon: "23.7345643",
+    //   });
+    //   await statement.executeAsync({
+    //     $name: "Ktirio allo",
+    //     $image: `${await localImageToBase64(
+    //       await computeURIOfLocalImageAsset(locationImage2)
+    //     )}`,
+    //     $lat: "39.0047165",
+    //     $lon: "23.3272946",
+    //   });
+    //   await statement.executeAsync({
+    //     $name: "Ena ktirio kalo",
+    //     $image: `${await localImageToBase64(
+    //       await computeURIOfLocalImageAsset(locationImage3)
+    //     )}`,
+    //     $lat: "56.5940331",
+    //     $lon: "-3.5344667",
+    //   });
+    //   await statement.executeAsync({
+    //     $name: "Ena ktirio megalo",
+    //     $image: `${await localImageToBase64(
+    //       await computeURIOfLocalImageAsset(locationImage4)
+    //     )}`,
+    //     $lat: "-3.5159044",
+    //     $lon: "23.5801791",
+    //   });
+    //   await statement.executeAsync({
+    //     $name: "Ktirio ki auto",
+    //     $image: `${await localImageToBase64(
+    //       await computeURIOfLocalImageAsset(locationImage4)
+    //     )}`,
+    //     $lat: "-3.5159044",
+    //     $lon: "23.5801791",
+    //   });
+    //   await statement.executeAsync({
+    //     $name: "buidling me onoma",
+    //     $image: `${await localImageToBase64(
+    //       await computeURIOfLocalImageAsset(locationImage4)
+    //     )}`,
+    //     $lat: "-3.5159044",
+    //     $lon: "23.5801791",
+    //   });
+    //   await statement.executeAsync({
+    //     $name: "Megaro mousikis",
+    //     $image: `${await localImageToBase64(
+    //       await computeURIOfLocalImageAsset(locationImage4)
+    //     )}`,
+    //     $lat: "-3.5159044",
+    //     $lon: "23.5801791",
+    //   });
+    //   await statement.executeAsync({
+    //     $name: "Stathos trainwn",
+    //     $image: `${await localImageToBase64(
+    //       await computeURIOfLocalImageAsset(locationImage4)
+    //     )}`,
+    //     $lat: "-3.5159044",
+    //     $lon: "23.5801791",
+    //   });
+    //   await statement.executeAsync({
+    //     $name: "Stathmos lewforeiwn",
+    //     $image: `${await localImageToBase64(
+    //       await computeURIOfLocalImageAsset(locationImage4)
+    //     )}`,
+    //     $lat: "-3.5159044",
+    //     $lon: "23.5801791",
+    //   });
+    //   await statement.executeAsync({
+    //     $name: "Akona ena ktirio",
+    //     $image: `${await localImageToBase64(
+    //       await computeURIOfLocalImageAsset(locationImage4)
+    //     )}`,
+    //     $lat: "-3.5159044",
+    //     $lon: "23.5801791",
+    //   });
+    //   await statement.executeAsync({
+    //     $name: "Ki auto ktirio",
+    //     $image: `${await localImageToBase64(
+    //       await computeURIOfLocalImageAsset(locationImage4)
+    //     )}`,
+    //     $lat: "-3.5159044",
+    //     $lon: "23.5801791",
+    //   });
+    //   await statement.executeAsync({
+    //     $name: "Stathmos allos",
+    //     $image: `${await localImageToBase64(
+    //       await computeURIOfLocalImageAsset(locationImage4)
+    //     )}`,
+    //     $lat: "-3.5159044",
+    //     $lon: "23.5801791",
+    //   });
+    //   await statement.executeAsync({
+    //     $name: "Enas akomi titlos",
+    //     $image: `${await localImageToBase64(
+    //       await computeURIOfLocalImageAsset(locationImage4)
+    //     )}`,
+    //     $lat: "-3.5159044",
+    //     $lon: "23.5801791",
+    //   });
+    //   await statement.executeAsync({
+    //     $name: "Hello there",
+    //     $image: `${await localImageToBase64(
+    //       await computeURIOfLocalImageAsset(locationImage4)
+    //     )}`,
+    //     $lat: "-3.5159044",
+    //     $lon: "23.5801791",
+    //   });
+    //   await statement.executeAsync({
+    //     $name: "Goodmorning",
+    //     $image: `${await localImageToBase64(
+    //       await computeURIOfLocalImageAsset(locationImage4)
+    //     )}`,
+    //     $lat: "-3.5159044",
+    //     $lon: "23.5801791",
+    //   });
+    // }
   } catch (error) {
     console.log("ERROR when trying to initialize the DB");
   }

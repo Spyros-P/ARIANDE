@@ -14,10 +14,39 @@ export const styles = StyleSheet.create({
   },
   downloadIcon: {
     color: "rgb(232, 234, 235)",
+    transform: "scale(1.25)",
+  },
+  downloadIconContainer: {
     position: "absolute",
     right: "7%",
     bottom: "10%",
+    padding: 5,
+    backgroundColor: "#6a9fc290",
+    borderRadius: 50,
+  },
+  tickIcon: {
+    color: "rgb(63, 204, 117)",
     transform: "scale(1.25)",
+  },
+  tickIconContainer: {
+    position: "absolute",
+    right: "7%",
+    bottom: "10%",
+    borderRadius: 50,
+    backgroundColor: "rgb(10, 117, 89)",
+    padding: 5,
+  },
+  spinnerIcon: {
+    color: "rgb(204, 240, 218)",
+    transform: "scale(1.25)",
+  },
+  spinnerIconContainer: {
+    position: "absolute",
+    right: "7%",
+    bottom: "10%",
+    borderRadius: 50,
+    backgroundColor: "rgb(93, 117, 111)",
+    padding: 5,
   },
   mapIcon: {
     transform: "scale(1.1)",
@@ -45,7 +74,7 @@ export const styles = StyleSheet.create({
     position: "absolute",
     bottom: "10%",
     left: 10,
-    maxWidth: "75%",
+    maxWidth: "67%",
     backgroundColor: "#07615945",
     borderRadius: 10,
     padding: 5,

@@ -49,9 +49,20 @@ export default function App() {
                     <MainPage provideYourScreenName={provideYourScreenName} />
                   )}
                 </Stack.Screen>
-                <Stack.Screen name="Library">
+                <Stack.Screen name="Library" options={{ unmountOnBlur: true }}>
                   {() => (
-                    <Library provideYourScreenName={provideYourScreenName} />
+                    <Library
+                      downloadMorePage={false}
+                      provideYourScreenName={provideYourScreenName}
+                    />
+                  )}
+                </Stack.Screen>
+                <Stack.Screen name="DownloadMorePage">
+                  {() => (
+                    <Library
+                      downloadMorePage={true}
+                      provideYourScreenName={provideYourScreenName}
+                    />
                   )}
                 </Stack.Screen>
               </Stack.Navigator>
