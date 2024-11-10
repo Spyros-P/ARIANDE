@@ -9,6 +9,14 @@ __pycache__
 /.pnp
 .pnp.js
 
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+
 # testing
 /coverage
 
