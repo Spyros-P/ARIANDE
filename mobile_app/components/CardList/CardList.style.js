@@ -13,4 +13,10 @@ export const styles = StyleSheet.create({
     borderRadius: 20,
   },
   cardItem: { height: 120, width: "45%" },
+  message: {
+    fontFamily: "SourGummy_Regular",
+    fontSize: 25,
+    color: "#ecfafa",
+    padding: 10,
+  },
 });

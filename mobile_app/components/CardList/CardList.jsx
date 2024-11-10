@@ -1,6 +1,7 @@
 import { Card } from "../Card/Card";
 import { ScrollView, View } from "react-native";
 import { styles } from "./CardList.style";
+import { Txt } from "../Txt/Txt";
 
 export function CardList({
   downloadMorePage,
@@ -30,6 +31,9 @@ export function CardList({
             downloaded={cardInfo?.downloaded}
           />
         ))}
+        {cards.length === 0 && !downloadMorePage && (
+          <Txt style={styles.message}>Download some new buildings!</Txt>
+        )}
       </View>
     </ScrollView>
   );
