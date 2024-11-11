@@ -12,21 +12,32 @@ export const fetchDownloadableBuildings = async () => {
       STRAPI_URL + "/api/buildings?populate=*",
       headers
     );
+
     return await Promise.all(
       res.data.data.map(async (buildingInfo) => {
-        const base64 = await convertPublicImageToBase64(
-          `${STRAPI_URL + buildingInfo.image.url}`
-        );
-        return {
-          id: buildingInfo.id,
-          name: buildingInfo.name,
-          lat: buildingInfo.lat,
-          lon: buildingInfo.lon,
-          imageBase64: base64,
-          downloading: false,
-          alreadySaved: false,
-          downloaded: false,
-        };
+        if (
+          buildingInfo?.image?.formats?.small?.url ||
+          buildingInfo?.image?.formats?.thumbnail?.url
+        ) {
+          const base64 = buildingInfo?.image?.formats?.small?.url
+            ? await convertPublicImageToBase64(
+                buildingInfo.image.formats.small.url
+              )
+            : await convertPublicImageToBase64(
+                buildingInfo.image.formats.thumbnail.url
+              );
+          return {
+            id: buildingInfo.id,
+            name: buildingInfo.name,
+            lat: buildingInfo.lat,
+            lon: buildingInfo.lon,
+            imageBase64: base64,
+            downloading: false,
+            alreadySaved: false,
+            downloaded: false,
+          };
+        }
+        return {};
       })
     );
   } catch (error) {

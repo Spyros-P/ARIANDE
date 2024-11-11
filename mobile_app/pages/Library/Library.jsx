@@ -70,6 +70,7 @@ export function Library({ downloadMorePage, provideYourScreenName }) {
         setErrorToFetchData(
           "Error when trying to load the available buildings. Try again!"
         );
+        console.log("ERROR", error);
         setIsLoading(false);
       }
     };

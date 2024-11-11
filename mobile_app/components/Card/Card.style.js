@@ -64,6 +64,7 @@ export const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     borderRadius: 16,
+    backgroundColor: "#6a9fc225",
   },
   title: {
     fontFamily: "SourGummy_Regular",
