@@ -15,7 +15,7 @@ export const styles = StyleSheet.create({
   cardItem: { height: 120, width: "45%" },
   message: {
     fontFamily: "SourGummy_Regular",
-    fontSize: 25,
+    fontSize: 20,
     color: "#ecfafa",
     padding: 10,
   },

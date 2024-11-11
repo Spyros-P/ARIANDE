@@ -191,7 +191,9 @@ export function Library({ downloadMorePage, provideYourScreenName }) {
           style={styles.downloadButton}
           onPress={() => navigation.navigate("DownloadMorePage")}
         >
-          <Txt style={styles.text}>Download more</Txt>
+          <Txt style={styles.text}>
+            {filteredCards.length > 0 ? "Download more" : "Download maps"}
+          </Txt>
         </TouchableOpacity>
       )}
     </View>
