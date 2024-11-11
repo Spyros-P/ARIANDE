@@ -22,7 +22,7 @@ export function DropDownList({ filteredDestinations, handleDestinationSelect, fi
             onPress={() => handleDestinationSelect(item)}
             style={s.dropdownItem}
           >
-            <Text style={item === fixedItem ? s.specialText : null}>{item}</Text>
+            <Text style={[item === fixedItem ? s.specialText : null, s.dropdownText]}>{item}</Text>
           </TouchableOpacity>
         )}
         ListEmptyComponent={_listEmptyComponent}

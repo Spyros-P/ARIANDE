@@ -2,26 +2,26 @@ import { StyleSheet } from "react-native";
 
 const s = StyleSheet.create({
   container: {
-    flexDirection: 'row',     
-    alignItems: 'center',     
-    justifyContent: 'space-between'
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
-  
+
   navButton: {
-    justifyContent: 'center',  
-    alignItems: 'center',
-    width: 40,                
-    height: 40,    
-    borderWidth: 1,      
-    borderColor: 'black',      
-    borderRadius: 20,        
+    justifyContent: "center",
+    alignItems: "center",
+    width: 40,
+    height: 40,
+    borderWidth: 1,
+    borderColor: "black",
+    borderRadius: 20,
     marginLeft: 10,
-    backgroundColor:'blue'
+    backgroundColor: "blue",
   },
-  
+
   searchWithList: {
-    flex: 1,               
-    paddingRight: 8    
+    flex: 1,
+    paddingRight: 8,
   },
 
   input: {
@@ -37,22 +37,26 @@ const s = StyleSheet.create({
     },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
-    elevation: 5, 
-    flexDirection: 'row',
-    alignItems: 'center'        
+    elevation: 5,
+    flexDirection: "row",
+    alignItems: "center",
   },
 
-  imgAndText:{
-    flexDirection: 'row',    
-    alignItems: 'center',    
-    gap: 10,                 
-    flexGrow: 1,             
-    alignSelf: 'stretch',   
+  imgAndText: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flexGrow: 1,
+    alignSelf: "stretch",
   },
 
-  deleteText:{
-    paddingRight: 10
-  }
+  deleteText: {
+    paddingRight: 10,
+  },
+  textInput: {
+    fontFamily: "SourGummy_Regular",
+    flex: 1,
+  },
 });
 
 export { s };
