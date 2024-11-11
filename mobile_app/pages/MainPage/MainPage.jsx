@@ -1,12 +1,24 @@
-import { useEffect } from "react";
-import { View } from "react-native";
+import { useEffect, useState } from "react";
+import { View, TouchableWithoutFeedback, Keyboard } from "react-native";
 import { DestinationsSearchBar } from '../../components/DestinationsSearchBar/DestinationsSearchBar'
+import { s } from './MainPage.style'
 
 export function MainPage({ provideYourScreenName }) {
+  const [isDropdownVisible, setDropdownVisible] = useState(false);
   useEffect(() => {
     provideYourScreenName("MainPage");
   }, []);
-  return <View>
-            <DestinationsSearchBar fixedItem={'Emergency Exit'}/>
-         </View>;
+
+  const doSomething = () =>{
+    setDropdownVisible(false)
+    Keyboard.dismiss()
+  }
+
+  return (
+    <TouchableWithoutFeedback onPress={doSomething}>
+      <View style={s.main}>
+        <DestinationsSearchBar fixedItem={'Emergency Exit'} isDropdownVisible={isDropdownVisible} setDropdownVisible={setDropdownVisible}/>
+      </View>
+    </TouchableWithoutFeedback>
+  );
 }

@@ -1,5 +1,5 @@
 import React from "react";
-import { FlatList, Text, TouchableOpacity } from "react-native";
+import { FlatList, Text, TouchableOpacity, TouchableWithoutFeedback } from "react-native";
 import { s } from "./DropDownList.style.js";
 
 export function DropDownList({ filteredDestinations, handleDestinationSelect, fixedItem }) {
@@ -13,20 +13,20 @@ export function DropDownList({ filteredDestinations, handleDestinationSelect, fi
     }
 
   return (
-    <FlatList
-      keyboardShouldPersistTaps='always'
-      data={(filteredDestinations)}
-      keyExtractor={(item) => item}
-      renderItem={({ item }) => (
-        <TouchableOpacity
-          onPress={() => handleDestinationSelect(item)}
-          style={s.dropdownItem}
-        >
-          <Text style={item === fixedItem ? s.specialText : null}>{item}</Text>
-        </TouchableOpacity>
-      )}
-      ListEmptyComponent={_listEmptyComponent}
-      style={s.dropdown}
-    />
+      <FlatList
+        keyboardShouldPersistTaps='always'
+        data={(filteredDestinations)}
+        keyExtractor={(item) => item}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            onPress={() => handleDestinationSelect(item)}
+            style={s.dropdownItem}
+          >
+            <Text style={item === fixedItem ? s.specialText : null}>{item}</Text>
+          </TouchableOpacity>
+        )}
+        ListEmptyComponent={_listEmptyComponent}
+        style={s.dropdown}
+      />
   );
 }

@@ -1,10 +1,13 @@
 import React, { useState } from "react";
-import { TextInput, View, Text, Keyboard, TouchableWithoutFeedback, ScrollView, TouchableOpacity  } from "react-native";
+import { TextInput, View, Text, Keyboard, TouchableWithoutFeedback, TouchableOpacity  } from "react-native";
 import { s } from "./DestinationsSearchBar.style.js";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { faMagnifyingGlass } from "@fortawesome/free-solid-svg-icons/faMagnifyingGlass";
 import { DropDownList } from "../DropDownList/DropDownList.jsx";
+import { SelectedDestination } from "../SelectedDestination/SelectedDestination"
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useNavigation } from "@react-navigation/native";
 
 const sampleDestinations = [
   "Room 3A",
@@ -16,13 +19,23 @@ const sampleDestinations = [
   "Dr Thanos",
 ];
 
-export function DestinationsSearchBar({ fixedItem }) {
-  const [isDropdownVisible, setDropdownVisible] = useState(false);
+export function DestinationsSearchBar({ fixedItem, isDropdownVisible, setDropdownVisible }) {
+  //const [isDropdownVisible, setDropdownVisible] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [filteredDestinations, setFilteredDestinations] = useState(sampleDestinations);
-  const [isDestinationVisible, setIsDestinationVisible] = useState(false)
+  const [isDestinationSelected, setIsDestinationSelected] = useState(false)
 
-  const handleInputFocus = () => setDropdownVisible(true);
+  const nav = useNavigation();
+
+  const handleInputFocus = () => {
+    setFilteredDestinations(
+      (fixedItem ? [fixedItem] : []).concat(
+        sampleDestinations
+          .sort((a, b) => a.localeCompare(b)) 
+      )
+    )
+    setDropdownVisible(true);
+  }
 
   const handleInputChange = (text) => {
     setInputValue(text);
@@ -53,7 +66,7 @@ export function DestinationsSearchBar({ fixedItem }) {
 
   const handleDestinationSelect = (destination) => {
     setInputValue(destination);
-    setIsDestinationVisible(true);
+    setIsDestinationSelected(true);
 
     setDropdownVisible(false);
 
@@ -64,33 +77,51 @@ export function DestinationsSearchBar({ fixedItem }) {
 
   const onDeleteText = () => {
     setInputValue('')
+    setFilteredDestinations(
+      (fixedItem ? [fixedItem] : []).concat(
+        sampleDestinations
+          .sort((a, b) => a.localeCompare(b)) 
+      )
+    )
+    setDropdownVisible(true);
+  }
+
+  const onDeleteDestination = () => {
+    setIsDestinationSelected(false)
+    setInputValue('')
   }
 
   return (
-    <View>
-      <View style={s.input}>
-        <View style = {s.imgAndText}>
-        <FontAwesomeIcon icon={faMagnifyingGlass} />
-        <TextInput
-          placeholder="Where do you want to go?"
-          style={s.textInput}
-          value={inputValue}
-          onFocus={handleInputFocus}
-          onChangeText={handleInputChange}
-        />
+    <View style={s.container}>
+      {!isDestinationSelected? (
+        <View style={s.searchWithList}>
+        <View style={s.input}>
+          <View style = {s.imgAndText}>
+          <FontAwesomeIcon icon={faMagnifyingGlass} />
+          <TextInput
+            placeholder="Where do you want to go?"
+            style={s.textInput}
+            value={inputValue}
+            onFocus={handleInputFocus}
+            onChangeText={handleInputChange}
+          />
+          </View>
+          <TouchableOpacity onPress={onDeleteText}>
+              <FontAwesome style = {s.deleteText} name="times-circle" size={20} color="red" />     
+          </TouchableOpacity> 
         </View>
-        <TouchableOpacity onPress={onDeleteText}>
-            <FontAwesome style = {s.deleteText} name="times-circle" size={20} color="red" />     
-        </TouchableOpacity> 
-      </View>
 
-      {isDropdownVisible && (
-        <DropDownList filteredDestinations={filteredDestinations} handleDestinationSelect={handleDestinationSelect} fixedItem = {fixedItem}/>
+        {isDropdownVisible && (
+          <DropDownList filteredDestinations={filteredDestinations} handleDestinationSelect={handleDestinationSelect} fixedItem = {fixedItem}/>
+        )}
+      </View>
+      ) :(
+        <View style={s.searchWithList}><SelectedDestination destination={inputValue} onDeleteDestination={onDeleteDestination}/></View>
       )}
 
-      {/* {isDestinationVisible && (
-        <Text>{inputValue}</Text>
-      )} */}
+      <TouchableOpacity style={s.navButton} onPress={() => nav.navigate("Library")}>
+          <Ionicons name="library" size={24} color="white" />
+      </TouchableOpacity>
     </View>
   );
 }

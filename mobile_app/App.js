@@ -42,7 +42,7 @@ export default function App() {
             {isFontLoaded && (
               <Stack.Navigator
                 screenOptions={{ headerShown: false }}
-                initialRouteName="Library"
+                initialRouteName="MainPage"
               >
                 <Stack.Screen name="MainPage">
                   {() => (

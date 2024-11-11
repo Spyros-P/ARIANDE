@@ -1,6 +1,29 @@
 import { StyleSheet } from "react-native";
 
 const s = StyleSheet.create({
+  container: {
+    flexDirection: 'row',     
+    alignItems: 'center',     
+    justifyContent: 'space-between'
+  },
+  
+  navButton: {
+    justifyContent: 'center',  
+    alignItems: 'center',
+    width: 40,                
+    height: 40,    
+    borderWidth: 1,      
+    borderColor: 'black',      
+    borderRadius: 20,        
+    marginLeft: 10,
+    backgroundColor:'blue'
+  },
+  
+  searchWithList: {
+    flex: 1,               
+    paddingRight: 8    
+  },
+
   input: {
     backgroundColor: "white",
     height: 40,
