@@ -8,8 +8,9 @@ export const styles = StyleSheet.create({
     gap: 30,
   },
   backIcon: {
-    transform: "scale(2)",
+    transform: "scale(1.5)",
     color: "rgb(195, 226, 221)",
+    marginLeft: 5,
   },
   backIconContainer: {
     alignSelf: "flex-start",
