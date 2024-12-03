@@ -133,7 +133,7 @@ export function Library({ downloadMorePage, provideYourScreenName }) {
         },
         {
           text: "Yes",
-          onPress: () => console.log(`SELECT ${buildingTitle}`),
+          onPress: () => navigation.navigate('MainPage', {CardId: CardId}),
           style: "destructive",
         },
       ],
@@ -141,8 +141,7 @@ export function Library({ downloadMorePage, provideYourScreenName }) {
         cancelable: true,
       }
     );
-
-  const storeNewBuilding = async (id, name, image, lat, lon) => {
+  const storeNewBuilding = async (id, name, image, floorPlan, floorPlanWidth, floorPlanHeight, graph, lat, lon) => {
     const downloadingCardIndex = filteredCards.findIndex(
       (card) => card.id === id
     );
@@ -153,16 +152,30 @@ export function Library({ downloadMorePage, provideYourScreenName }) {
     };
     filteredCards[downloadingCardIndex] = newDownloadingCard;
     setFilteredCards([...filteredCards]);
-    await downloadNewBuilding(db, id, name, image, lat, lon);
-    setTimeout(() => {
-      newDownloadingCard = {
-        ...newDownloadingCard,
-        downloaded: true,
-        downloading: false,
-      };
-      filteredCards[downloadingCardIndex] = newDownloadingCard;
-      setFilteredCards([...filteredCards]);
-    }, 750);
+    try {
+      await downloadNewBuilding(db, id, name, image, floorPlan,floorPlanWidth, floorPlanHeight, graph,lat, lon);
+      setTimeout(() => {
+        newDownloadingCard = {
+          ...newDownloadingCard,
+          downloaded: true,
+          downloading: false,
+        };
+        filteredCards[downloadingCardIndex] = newDownloadingCard;
+        setFilteredCards([...filteredCards]);
+      }, 200);
+    } catch (error) {
+      console.log(error.message)
+      setTimeout(() => {
+        newDownloadingCard = {
+          ...newDownloadingCard,
+          downloaded: false,
+          downloading: false,
+        };
+        filteredCards[downloadingCardIndex] = newDownloadingCard;
+        setFilteredCards([...filteredCards]);
+      }, 200);
+    }
+
   };
 
   return (

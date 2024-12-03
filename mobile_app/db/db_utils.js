@@ -32,6 +32,10 @@ export async function initializeDB(db) {
         id INTEGER PRIMARY KEY,
         name TEXT NOT NULL,
         imageBase64 TEXT NOT NULL,
+        floorPlanBase64 TEXT NOT NULL,
+        floorPlanWidth INTEGER NOT NULL,
+        floorPlanHeight INTEGER NOT NULL,
+        graph TEXT NOT NULL,
         lon INTEGER NOT NULL,
         lat INTEGER NOT NULL
       );

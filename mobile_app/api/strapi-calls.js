@@ -15,23 +15,32 @@ export const fetchDownloadableBuildings = async () => {
 
     return await Promise.all(
       res.data.data.map(async (buildingInfo) => {
+        console.log(buildingInfo?.floorPlan);
         if (
-          buildingInfo?.image?.formats?.small?.url ||
-          buildingInfo?.image?.formats?.thumbnail?.url
+          (buildingInfo?.image?.formats?.small?.url ||
+            buildingInfo?.image?.formats?.thumbnail?.url) &&
+          buildingInfo?.floorPlan?.url
         ) {
-          const base64 = buildingInfo?.image?.formats?.small?.url
+          const buildingImageBase64 = buildingInfo?.image?.formats?.small?.url
             ? await convertPublicImageToBase64(
                 buildingInfo.image.formats.small.url
               )
             : await convertPublicImageToBase64(
                 buildingInfo.image.formats.thumbnail.url
               );
+          const floorPlanImageBase64 = await convertPublicImageToBase64(
+            buildingInfo?.floorPlan?.url
+          );
           return {
             id: buildingInfo.id,
             name: buildingInfo.name,
             lat: buildingInfo.lat,
             lon: buildingInfo.lon,
-            imageBase64: base64,
+            imageBase64: buildingImageBase64,
+            floorPlanBase64: floorPlanImageBase64,
+            floorPlanWidth: buildingInfo.floorPlan.width,
+            floorPlanHeight: buildingInfo.floorPlan.height,
+            graph: buildingInfo.graph,
             downloading: false,
             alreadySaved: false,
             downloaded: false,

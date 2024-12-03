@@ -52,8 +52,11 @@ export default function App() {
                 initialRouteName="MainPage"
               >
                 <Stack.Screen name="MainPage">
-                  {() => (
-                    <MainPage provideYourScreenName={provideYourScreenName} />
+                  {({ route }) => (
+                    <MainPage
+                      provideYourScreenName={provideYourScreenName}
+                      route={route}
+                    />
                   )}
                 </Stack.Screen>
                 <Stack.Screen name="Library" options={{ unmountOnBlur: true }}>

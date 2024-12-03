@@ -10,6 +10,8 @@ export function CardList({
   onSelectCard,
   storeNewBuilding,
 }) {
+
+  cards.map(card=>console.log('HEIGHT',card.floorPlanWidth))
   return (
     <ScrollView>
       <View style={[styles.container, { padding: cards.length > 0 ? 15 : 0 }]}>
@@ -19,6 +21,10 @@ export function CardList({
             key={index}
             id={cardInfo.id}
             image={cardInfo.imageBase64}
+            floorPlan={cardInfo.floorPlanBase64}
+            floorPlanWidth={cardInfo.floorPlanWidth}
+            floorPlanHeight={cardInfo.floorPlanHeight}
+            graph={cardInfo.graph}
             title={cardInfo.name}
             alreadySaved={cardInfo.alreadySaved}
             lat={cardInfo.lat}

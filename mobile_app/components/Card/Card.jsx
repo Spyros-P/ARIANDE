@@ -12,6 +12,10 @@ import { styles } from "./Card.style";
 export function Card({
   id,
   image,
+  floorPlan,
+  floorPlanWidth,
+  floorPlanHeight,
+  graph,
   title,
   alreadySaved,
   lon,
@@ -27,7 +31,7 @@ export function Card({
   const onTapCard = alreadySaved ? () => onSelectCard(id, title) : () => {};
   const onDownloadBuilding = () => {
     console.log("DOWNLOAD");
-    storeNewBuilding(id, title, image, lat, lon);
+    storeNewBuilding(id, title, image, floorPlan,floorPlanWidth,floorPlanHeight,graph,lat, lon);
   };
   console.log(title, downloading, downloaded);
   return (
