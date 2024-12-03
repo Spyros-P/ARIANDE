@@ -8,6 +8,8 @@ import { styles } from "./App.style";
 import { useFonts } from "expo-font";
 import { initializeDB } from "./db/db_utils";
 import { useState } from "react";
+import DummyPage from "./pages/DummyPage/DummyPage";
+
 const Stack = createNativeStackNavigator();
 
 const navTheme = {
@@ -24,11 +26,13 @@ export default function App() {
     SourGummy_Bold: require("./assets/fonts/SourGummy-Bold.ttf"),
     SourGummy_Regular: require("./assets/fonts/SourGummy-Regular.ttf"),
   });
+
   const provideYourScreenName = (screenName) => {
     setCurrentBackgroundColor(
       screenName === "MainPage" ? "white" : "rgb(29, 32, 31)"
     );
   };
+
   return (
     <NavigationContainer theme={navTheme}>
       <SafeAreaProvider>
@@ -38,6 +42,9 @@ export default function App() {
             { backgroundColor: currentBackgroundColor },
           ]}
         >
+          {/* ImageZoom: Full screen, overlaying on top of content */}
+
+          {/* Navigation and other content */}
           <SQLiteProvider databaseName="hipeac.db" onInit={initializeDB}>
             {isFontLoaded && (
               <Stack.Navigator
@@ -65,6 +72,7 @@ export default function App() {
                     />
                   )}
                 </Stack.Screen>
+                <Stack.Screen name="Dummy">{() => <DummyPage />}</Stack.Screen>
               </Stack.Navigator>
             )}
           </SQLiteProvider>

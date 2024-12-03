@@ -1,27 +1,38 @@
 import { StyleSheet } from "react-native";
 
 export const s = StyleSheet.create({
-    main:{
-        flex:1
-    },
+  main: {
+    flex: 1,
+  },
 
-    buttons:{
-        position: 'absolute',
-        bottom: 20,
-        right: 10,
-        height: 160,
-        justifyContent:'space-evenly',
-        alignItems: 'center'
-    },
+  buttons: {
+    position: "absolute",
+    bottom: 20,
+    right: 10,
+    height: 160,
+    justifyContent: "space-evenly",
+    alignItems: "center",
+  },
 
-    btn:{
-        width: 40,
-        height: 40,
-        backgroundColor: 'black',
-        borderWidth: 1,
-        borderColor: "black",
-        borderRadius: 5,
-        alignItems:'center',
-        justifyContent:'center'
-    }
+  btn: {
+    width: 40,
+    height: 40,
+    backgroundColor: "black",
+    borderWidth: 1,
+    borderColor: "black",
+    borderRadius: 5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  imageOverlayContainer: {
+    position: "absolute", // To overlay the image on top of everything
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: -1, // Ensure it overlays above the content
+  },
+  searchBar: {
+    padding: 20,
+  },
 });

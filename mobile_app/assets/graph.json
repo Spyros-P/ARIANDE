@@ -1,0 +1,34 @@
+[
+  {
+    "id": 0,
+    "label": "Corridor",
+    "primary": true,
+    "imageX": 232,
+    "imageY": 240,
+    "edges": [1, 2, 3]
+  },
+  {
+    "id": 1,
+    "label": "Bathroom",
+    "primary": true,
+    "imageX": 194,
+    "imageY": 71,
+    "edges": [0]
+  },
+  {
+    "id": 2,
+    "label": "Living Room",
+    "primary": true,
+    "imageX": 280,
+    "imageY": 241,
+    "edges": [0]
+  },
+  {
+    "id": 3,
+    "label": "Living Room",
+    "primary": false,
+    "imageX": 377,
+    "imageY": 89,
+    "edges": [0]
+  }
+]

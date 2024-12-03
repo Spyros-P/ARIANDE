@@ -6,6 +6,7 @@ export const styles = StyleSheet.create({
     flexDirection: "column",
     alignItems: "center",
     gap: 30,
+    padding: 20,
   },
   backIcon: {
     transform: "scale(1.5)",
