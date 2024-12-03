@@ -40,6 +40,5 @@ export const s = StyleSheet.create({
     zIndex: 1, // Ensures it's above the image
     color: "blue", // Change color as needed
     fontSize: 30, // Adjust size as needed
-    transform: [{ scale: 1.2 }],
   },
 });

@@ -73,8 +73,8 @@ export function MainPage({ provideYourScreenName, route }) {
               pinchToZoom={true} // Allow pinch zoom
               enableCenterFocus={false} // Disable automatic centering
               useNativeDriver= {true}
-              minScale={1.5}
-              maxScale={3}
+              minScale={1}
+              maxScale={4}
               centerOn={{
                 x: floorPlan.width / 2 - currentPosition.x,  
                 y: floorPlan.height / 2 -currentPosition.y,  
@@ -86,10 +86,11 @@ export function MainPage({ provideYourScreenName, route }) {
               <Image
                 style={{ width: floorPlan.width, height: floorPlan.height }} // Ensure image takes full screen
                 source={{ uri: `${floorPlan.base64}` }}
-              />            <FontAwesomeIcon
+              />         
+              {floorPlan.base64 && <FontAwesomeIcon
               icon={faBullseye}
-              style={[s.positionIcon,{left:currentPosition.x, top:currentPosition.y}]}
-            />
+              style={[s.positionIcon,{left:currentPosition.x, top:currentPosition.y, transform: [{ scale: Math.min(1.2, 2/zoomScale) }],}]}
+            />}
               
             </ImageZoom>
           </View>
