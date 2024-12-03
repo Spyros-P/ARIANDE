@@ -1,4 +1,4 @@
-import React, {  useState } from "react";
+import React, {  useRef, useState } from "react";
 import { View, TouchableWithoutFeedback, Keyboard, TouchableOpacity } from "react-native";
 import { DestinationsSearchBar } from "../../components/DestinationsSearchBar/DestinationsSearchBar";
 import { s } from "./MainPage.style";
@@ -8,11 +8,17 @@ import AntDesign from '@expo/vector-icons/AntDesign';
 import { Image, Dimensions } from "react-native";
 import ImageZoom from "react-native-image-pan-zoom";
 import { useSQLiteContext } from "expo-sqlite";
+import { faBullseye } from "@fortawesome/free-solid-svg-icons";
 import { fetchFloorPlanByID } from "../../db/db_queries";
+import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 export function MainPage({ provideYourScreenName, route }) {
+  const imageZoomRef = useRef(null);
   const db = useSQLiteContext();
   const [isDropdownVisible, setDropdownVisible] = useState(false);
   const [floorPlan, setFloorPlan] = useState({base64: "", width:0, height:0, graph:[]})
+  const [currentPosition, setCurrentPosition]=useState({x: 300, y:200})
+  const [zoomScale, setZoomScale] = useState(1); 
+
   useFocusEffect(
     React.useCallback(() => {
       const FetchMap = async(id)=>{
@@ -33,10 +39,20 @@ export function MainPage({ provideYourScreenName, route }) {
     setDropdownVisible(false);
     Keyboard.dismiss();
   };
-
+  const centerOnCoordinate = (x, y) => {
+    if (imageZoomRef.current) {
+      imageZoomRef.current.centerOn({
+        x: floorPlan.width / 2 - x,  
+        y: floorPlan.height / 2 -y,  
+        scale: 2, 
+        duration: 1,  
+      });
+    }
+  };
 
   return (
     <TouchableWithoutFeedback onPress={doSomething}>
+      
       <View style={s.main}>
         <View style={s.searchBar}>
         <DestinationsSearchBar
@@ -47,23 +63,34 @@ export function MainPage({ provideYourScreenName, route }) {
         </View>
           <View style={s.imageOverlayContainer}>
             <ImageZoom
+              ref={imageZoomRef} 
               cropWidth={Dimensions.get("window").width}
               cropHeight={Dimensions.get("window").height}
               imageWidth={floorPlan.width} // Set your image width here, or adjust dynamically
               imageHeight={floorPlan.height} // Set your image height here, or adjust dynamically
-              panToMove={true} // Enable panning when zoomed in
-              pinchToZoom={true} // Enable pinch gestures for zooming
-              enableDoubleClickZoom={true} // Allow double-tap zoom toggle
-              minScale={1} // Minimum zoom (fits the whole image)
-              maxScale={5} // Maximum zoom (5x the original size)
-              initialScale={1.5} // Start slightly zoomed in for visual focus
-              enableCenterFocus={false} // Keep the image centered when smaller than the viewport
-              useNativeDriver={true} // Enable smoother animations with native driver
+              onStartShouldSetPanResponder={() => true}
+              panToMove={true} // Allow panning
+              pinchToZoom={true} // Allow pinch zoom
+              enableCenterFocus={false} // Disable automatic centering
+              useNativeDriver= {true}
+              minScale={1.5}
+              maxScale={3}
+              centerOn={{
+                x: floorPlan.width / 2 - currentPosition.x,  
+                y: floorPlan.height / 2 -currentPosition.y,  
+                scale: 2, 
+                duration: 1,  
+              }}
+              onMove={(props)=>setZoomScale(props.scale)}
             >
               <Image
                 style={{ width: floorPlan.width, height: floorPlan.height }} // Ensure image takes full screen
                 source={{ uri: `${floorPlan.base64}` }}
-              />
+              />            <FontAwesomeIcon
+              icon={faBullseye}
+              style={[s.positionIcon,{left:currentPosition.x, top:currentPosition.y}]}
+            />
+              
             </ImageZoom>
           </View>
         <View style={s.buttons}>
@@ -73,7 +100,7 @@ export function MainPage({ provideYourScreenName, route }) {
           <TouchableOpacity style={s.btn}>
             <AntDesign name="caretdown" size={24} color="white" />
           </TouchableOpacity>
-          <TouchableOpacity style={s.btn}>
+          <TouchableOpacity style={s.btn} onPress={() => centerOnCoordinate(currentPosition.x, currentPosition.y)}>
             <FontAwesome6 name="location-arrow" size={24} color="white" />
           </TouchableOpacity>
         </View>

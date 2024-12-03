@@ -35,4 +35,11 @@ export const s = StyleSheet.create({
   searchBar: {
     padding: 20,
   },
+  positionIcon: {
+    position: "absolute",
+    zIndex: 1, // Ensures it's above the image
+    color: "blue", // Change color as needed
+    fontSize: 30, // Adjust size as needed
+    transform: [{ scale: 1.2 }],
+  },
 });
