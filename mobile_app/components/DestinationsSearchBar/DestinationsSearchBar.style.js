@@ -16,7 +16,7 @@ const s = StyleSheet.create({
     borderColor: "black",
     borderRadius: 20,
     marginLeft: 10,
-    backgroundColor: "blue",
+    backgroundColor: "rgb(0, 51, 35)",
   },
 
   searchWithList: {
@@ -25,7 +25,7 @@ const s = StyleSheet.create({
   },
 
   input: {
-    backgroundColor: "white",
+    backgroundColor: "rgb(218, 252, 242)",
     height: 40,
     paddingLeft: 20,
     borderRadius: 20,

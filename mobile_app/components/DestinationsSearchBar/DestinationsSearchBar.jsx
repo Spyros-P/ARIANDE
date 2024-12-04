@@ -32,6 +32,7 @@ export function DestinationsSearchBar({
   setDropdownVisible,
   destinations,
   onSelectDestination,
+  resetGraph,
 }) {
   //const [isDropdownVisible, setDropdownVisible] = useState(false);
   const [inputValue, setInputValue] = useState("");
@@ -100,6 +101,7 @@ export function DestinationsSearchBar({
   const onDeleteDestination = () => {
     setIsDestinationSelected(false);
     setInputValue("");
+    resetGraph();
   };
 
   return (

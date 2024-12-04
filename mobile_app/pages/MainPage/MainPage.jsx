@@ -17,7 +17,7 @@ import { faBullseye } from "@fortawesome/free-solid-svg-icons";
 import { fetchFloorPlanByID } from "../../db/db_queries";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import { WeightedGraph } from "../../utils/dijkstra";
-import { Svg, Line } from "react-native-svg";
+import { Svg, Line, Path, Defs, LinearGradient, Stop } from "react-native-svg";
 import {
   computeLabels,
   computePrimaryNodeForDestination,
@@ -93,6 +93,13 @@ export function MainPage({ provideYourScreenName, route }) {
       });
     }
   };
+
+  const resetGraph = () => {
+    setPathEdges([]);
+    setDestinationPixels({ x: -100, y: -100 });
+    centerOnCoordinate(currentPosition.x, currentPosition.y);
+  };
+
   const onSelectDestination = (destination) => {
     console.log(destination);
     var graph = new WeightedGraph();
@@ -136,6 +143,7 @@ export function MainPage({ provideYourScreenName, route }) {
             setDropdownVisible={setDropdownVisible}
             destinations={labels}
             onSelectDestination={onSelectDestination}
+            resetGraph={resetGraph}
           />
         </View>
         <View style={s.imageOverlayContainer}>
@@ -170,8 +178,8 @@ export function MainPage({ provideYourScreenName, route }) {
                 style={[
                   s.positionIcon,
                   {
-                    left: currentPosition.x,
-                    top: currentPosition.y,
+                    left: currentPosition.x - 8,
+                    top: currentPosition.y - 8,
                     transform: [{ scale: Math.min(1.2, 2 / zoomScale) }],
                   },
                 ]}
@@ -183,8 +191,8 @@ export function MainPage({ provideYourScreenName, route }) {
                 style={[
                   s.destinationIcon,
                   {
-                    left: destinationPixels.x,
-                    top: destinationPixels.y,
+                    left: destinationPixels.x - 8,
+                    top: destinationPixels.y - 8,
                     transform: [{ scale: Math.min(1.2, 2 / zoomScale) }],
                   },
                 ]}
@@ -197,14 +205,38 @@ export function MainPage({ provideYourScreenName, route }) {
                 height: floorPlan.height,
               }}
             >
-              {pathEdges.map((edge) => (
+              {/* Optional Gradient for Path Lines */}
+              <Defs>
+                <LinearGradient
+                  id="pathGradient"
+                  x1="0%"
+                  y1="0%"
+                  x2="100%"
+                  y2="0%"
+                >
+                  <Stop
+                    offset="0%"
+                    stopColor="rgb(50, 112, 89)"
+                    stopOpacity="1"
+                  />
+                  <Stop
+                    offset="100%"
+                    stopColor="rgb(132, 185, 166)"
+                    stopOpacity="1"
+                  />
+                </LinearGradient>
+              </Defs>
+              {pathEdges.map((edge, index) => (
                 <Line
-                  x1={edge[0].x} // Start x-coordinate
-                  y1={edge[0].y} // Start y-coordinate
-                  x2={edge[1].x} // End x-coordinate
-                  y2={edge[1].y} // End y-coordinate
-                  stroke="blue"
-                  strokeWidth="2"
+                  key={index}
+                  x1={edge[0].x}
+                  y1={edge[0].y}
+                  x2={edge[1].x}
+                  y2={edge[1].y}
+                  stroke="url(#pathGradient)" // Gradient stroke
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                 />
               ))}
             </Svg>

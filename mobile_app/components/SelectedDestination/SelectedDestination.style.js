@@ -9,6 +9,7 @@ const s = StyleSheet.create({
     borderColor: "black",
     borderRadius: 8,
     padding: 4,
+    backgroundColor: "rgb(218, 252, 242)",
   },
 
   destination: {
