@@ -41,4 +41,14 @@ export const s = StyleSheet.create({
     color: "blue", // Change color as needed
     fontSize: 30, // Adjust size as needed
   },
+  destinationIcon: {
+    position: "absolute",
+    zIndex: 1, // Ensures it's above the image
+    color: "red", // Change color as needed
+    fontSize: 30, // Adjust size as needed
+  },
+  disabledBtn: {
+    backgroundColor: "rgb(81, 87, 84)", // Disabled background color
+    opacity: 0.3, // Optional: reduce opacity
+  },
 });
