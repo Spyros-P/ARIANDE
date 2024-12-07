@@ -7,6 +7,7 @@ from shapely.geometry import Polygon, LineString
 from scipy.interpolate import make_interp_spline, splprep, splev
 import pickle
 from typing import Tuple, List, Literal, Callable
+import json
 
 MatLike = np.ndarray
 
@@ -16,7 +17,8 @@ class Indoor_Navigation:
                  name: str = None,
                  blur: List[Callable[[MatLike], MatLike]] = None,
                  threshold: List[Callable[[MatLike], MatLike]] = None,
-                 grid_size: int = 10):
+                 grid_size: int = 10,
+                 radius: int = 2.3):
         """
         A class that represents an indoor navigation system
         """
@@ -24,6 +26,11 @@ class Indoor_Navigation:
     
         # Stage 1: Initial image processing
         self.image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+
+        # Add margins to the image to avoid contours at the edges
+        margin = 50
+        self.margin = margin
+        self.image = cv2.copyMakeBorder(self.image, margin, margin, margin, margin, cv2.BORDER_CONSTANT, value=255)
 
         filters = [morph_close(kernel(3)),
              morph_open(kernel(80)),
@@ -162,7 +169,7 @@ class Indoor_Navigation:
             # Sort nearby_nodes based on the precomputed distances
             nearby_nodes = sorted(nearby_nodes, key=lambda x: distances_dict[x])
             # filter out nodes that are too far
-            nearby_nodes = [x for x in nearby_nodes if distances_dict[x] < grid_size * 2.3]
+            nearby_nodes = [x for x in nearby_nodes if distances_dict[x] <= grid_size * radius]
             for j in nearby_nodes:
                 if i >= j:
                     continue
@@ -191,7 +198,7 @@ class Indoor_Navigation:
             nearby_nodes = list(idx.nearest((pos_i[0], pos_i[1], pos_i[0], pos_i[1]), 50))
             distances_dict = {x: np.linalg.norm(np.array(pos_i) - np.array(positions[x])) for x in nearby_nodes}
             nearby_nodes = sorted(nearby_nodes, key=lambda x: distances_dict[x])
-            nearby_nodes = [x for x in nearby_nodes if distances_dict[x] < grid_size * 2.3]
+            nearby_nodes = [x for x in nearby_nodes if distances_dict[x] <= grid_size * radius]
             for j in nearby_nodes:
                 if j >= len(valid_nodes):
                     continue
@@ -343,7 +350,46 @@ class Indoor_Navigation:
         """A function that saves the object to a file"""
         with open(path, 'wb') as f:
             pickle.dump(self, f)
-    
+   
+    def save_json(self, path: str) -> None:
+        """A function that saves the object to a JSON file"""
+        rooms_dummy = ["Living Room", "Bathroom", "Kitchen", "Bedroom", "Office"]
+
+        # TODO: Implement primary nodes, labels, rooms, floor
+        data = { node : {"edges" : [], "label" : rooms_dummy[node % 5], "coords" : self.graph_nodes[node], "primary" : False} for node in self.G.nodes }
+
+        for i, j in self.G.edges:
+            data[i]["edges"].append(j)
+            data[j]["edges"].append(i)
+
+        json_graph = []
+
+        # get items of dictionary
+        for i, j in data.items():
+            dict_i = {
+                "id" : i,
+                "edges" : j["edges"],
+                "label" : j["label"],
+                "imageX" : j["coords"][0] - self.margin,
+                "imageY" : j["coords"][1] - self.margin,
+                "primary" : j["primary"],
+                "floor" : 0
+            }
+            json_graph.append(dict_i)
+        
+        # TODO: Implement room labels
+        #json_rooms = [{"label": "Room", "coords": list(i.exterior.coords)} for i in self.rooms]
+        json_rooms = [{"label": rooms_dummy[id], "floor": 0, "coords": [(int(x) - self.margin, int(y) - self.margin) for x, y in i.exterior.coords]} for id, i in enumerate(self.rooms)]
+
+        json_data = {
+            "Distance_Per_Pixel" : 1,
+            "Graph" : json_graph,
+            "Rooms" : json_rooms
+        }
+
+        with open(path, 'w') as f:
+            json.dump(json_data, f, indent=4)
+
 
     @classmethod
     def load(self, path: str) -> None:
@@ -480,6 +526,28 @@ def adaptive_threshold(block_size, C) -> Callable[[MatLike], MatLike]:
         return cv2.adaptiveThreshold(image, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, block_size, C)
     return func
 
+def threshold(min, max, type='binary') -> Callable[[MatLike], MatLike]:
+    if type == 'binary':
+        cv_type = cv2.THRESH_BINARY
+    elif type == 'binary_inv':
+        cv_type = cv2.THRESH_BINARY_INV
+    elif type == 'trunc':
+        cv_type = cv2.THRESH_TRUNC
+    elif type == 'tozero':
+        cv_type = cv2.THRESH_TOZERO
+    elif type == 'tozero_inv':
+        cv_type = cv2.THRESH_TOZERO_INV
+    else:
+        raise ValueError('Invalid threshold type. Choose either "binary", "binary_inv", "trunc", "tozero", or "tozero_inv"')
+    def func(image):
+        return cv2.threshold(image, min, max, cv_type)[1]
+    return func
+
+def in_range(min, max) -> Callable[[MatLike], MatLike]:
+    def func(image):
+        return cv2.inRange(image, min, max)
+    return func
+
 def morph_open( kernel) -> Callable[[MatLike], MatLike]:
     def func(image):
         return cv2.morphologyEx(image, cv2.MORPH_OPEN, kernel)
@@ -515,10 +583,10 @@ def line_is_inside_contour(line, contour_polygons):
 
 ## For testing purposes ##
 if __name__ == '__main__':
-    navigation = Indoor_Navigation('static/floor_plan_1.jpg',
+    navigation = Indoor_Navigation('assets/images/floor_plan_1_crop.jpg',
                                    'Demo floor plan',
-                                   grid_size=6)
-    navigation.plot_graph()
+                                   grid_size=30)
+    # navigation.plot_graph()
     #navigation.plot_graph()
     # print(navigation.report())
     # navigation.plot_rooms()
@@ -526,4 +594,9 @@ if __name__ == '__main__':
     #                            'Demo floor plan',
     #                            grid_size=10)
     #navigation.calculate_and_plot_route((0, 0), (1, 1))
-    navigation.save('static/navigation.pkl')
+    # navigation.save('static/navigation.pkl')
+
+    navigation.save_json('navigation.json')
+
+
+
