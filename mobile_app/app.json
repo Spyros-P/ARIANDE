@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "jsEngine": "hermes",
+    "name": "hipeac-mobile-app",
+    "slug": "hipeac-mobile-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/ariadne.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/ariadne.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "jsEngine": "jsc",
+      "supportsTablet": true
+    },
+    "android": {
+      "softwareKeyboardLayoutMode": "pan",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/ariadne.png",
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": ["expo-asset", "expo-font"]
+  }
+}
