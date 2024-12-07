@@ -1,9 +1,21 @@
 import React, { useState, useRef, useEffect } from "react";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { ImageContainer, Rectangle } from "./FloorPlanImage";
+import { drawLightPolygon } from "../../utils/drawPolygon";
+const isPointInPolygon = (point, polygon) => {
+  let [x, y] = point;
+  let isInside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    let [xi, yi] = polygon[i];
+    let [xj, yj] = polygon[j];
+    const intersect =
+      yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+    if (intersect) isInside = !isInside;
+  }
+  return isInside;
+};
 
 const FloorPlanImage = ({
-  imageSrc,
   currentBoundingBoxes,
   setCurrentBoundingBoxes,
   setDetectedBoundingBoxes,
@@ -16,16 +28,127 @@ const FloorPlanImage = ({
   const [ctrlPressed, setCtrlPressed] = useState(false); // Check if the Ctrl key is pressed
   const [imageCursor, setImageCursor] = useState("grab"); // Cursor state for different interactions
   const [imageIsGrabbed, setImageIsGrabbed] = useState(false); // Image grab state
-
+  const [roomToLabel, setRoomToLabel] = useState(null); // The room to label
   const [showModal, setShowModal] = useState(false); // Whether to show the modal
   const [selectedLabel, setSelectedLabel] = useState(""); // Selected label from the dropdown
   const [customLabel, setCustomLabel] = useState(""); // Custom label text
   const [boxToLabel, setBoxToLabel] = useState(null); // The bounding box that needs labeling
+  const [imageSrc, setImageSrc] = useState(null); // State to store the uploaded image
+  const [highlightedRoom, setHighlightedRoom] = useState(null); // Room to be highlighted
+  const [roomData, setRoomData] = useState([
+    {
+      floor: 0,
+      label: "Living Room",
+      coords: [
+        [47, 405],
+        [48, 404],
+        [261, 404],
+        [262, 405],
+        [262, 497],
+        [261, 498],
+        [48, 498],
+        [47, 497],
+        [47, 405],
+      ],
+    },
+    {
+      floor: 0,
+      label: "Bathroom",
+      coords: [
+        [47, 257],
+        [48, 256],
+        [182, 256],
+        [183, 257],
+        [183, 396],
+        [182, 397],
+        [164, 397],
+        [163, 398],
+        [48, 398],
+        [47, 397],
+        [47, 257],
+      ],
+    },
+    {
+      floor: 0,
+      label: "Kitchen",
+      coords: [
+        [268, 26],
+        [269, 25],
+        [428, 25],
+        [429, 26],
+        [429, 497],
+        [428, 498],
+        [269, 498],
+        [268, 497],
+        [268, 398],
+        [190, 398],
+        [189, 397],
+        [189, 250],
+        [48, 250],
+        [47, 249],
+        [47, 146],
+        [48, 145],
+        [261, 145],
+        [262, 146],
+        [262, 248],
+        [268, 248],
+        [268, 26],
+      ],
+    },
+    {
+      floor: 0,
+      label: "Bedroom",
+      coords: [
+        [168, 26],
+        [169, 25],
+        [261, 25],
+        [262, 26],
+        [262, 138],
+        [261, 139],
+        [169, 139],
+        [168, 138],
+        [168, 26],
+      ],
+    },
+    {
+      floor: 0,
+      label: "Office",
+      coords: [
+        [47, 26],
+        [48, 25],
+        [161, 25],
+        [162, 26],
+        [162, 138],
+        [161, 139],
+        [48, 139],
+        [47, 138],
+        [47, 26],
+      ],
+    },
+  ]);
+
+  // useEffect(() => {
+  //   const canvas = canvasRef?.current;
+  //   const ctx = canvas?.getContext("2d");
+  //   if (highlightedRoom) {
+  //     console.log(highlightedRoom?.label);
+  //     drawLightPolygon(canvas, ctx, highlightedRoom.coords);
+  //   }
+  // }, highlightedRoom);
+
+  const highlightRoom = (highlightedRoom) => {
+    if (!ctrlPressed) {
+      const canvas = canvasRoomsRef?.current;
+      const ctx = canvas?.getContext("2d");
+      drawLightPolygon(canvas, ctx, highlightedRoom?.coords || []);
+    }
+  };
 
   const canvasRef = useRef(null);
+  const canvasRoomsRef = useRef(null);
   const imageRef = useRef(null);
-  console.log(highlightedBox);
-  // Listen for key events to detect when the Ctrl key is pressed
+
+  // Handle key events for Ctrl key press
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (
@@ -49,24 +172,40 @@ const FloorPlanImage = ({
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
 
-    // Cleanup event listeners on component unmount
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
   }, []);
 
+  // Handle image file selection
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImageSrc(reader.result); // Set image source to the result of FileReader
+      };
+      reader.readAsDataURL(file); // Read the file as a data URL
+    }
+  };
+
   // Draw bounding boxes and the current box being drawn
   useEffect(() => {
+    if (!canvasRef.current || !imageRef.current) return; // Ensure canvas and image are available
+
     const canvas = canvasRef.current;
+    const canvasRooms = canvasRoomsRef.current;
     const ctx = canvas.getContext("2d");
     const image = imageRef.current;
 
     if (image && canvas) {
       canvas.width = image.width;
       canvas.height = image.height;
+      canvasRooms.width = image.width;
+      canvasRooms.height = image.height;
 
-      ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas before re-drawing
+      ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas before re-drawing
       // Draw the image
       ctx.drawImage(image, 0, 0);
 
@@ -116,6 +255,7 @@ const FloorPlanImage = ({
     isDrawing,
     currentBox,
     highlightedBox,
+    imageSrc, // Redraw when image is uploaded
   ]);
 
   const grabImage = () => {
@@ -142,10 +282,25 @@ const FloorPlanImage = ({
 
   // Mouse move event to update the current bounding box while dragging
   const handleMouseMove = (e) => {
-    if (!isDrawing || !ctrlPressed) return; // Only update if the user is drawing
     const { offsetX, offsetY } = e.nativeEvent;
     const width = offsetX - startPoint.x;
     const height = offsetY - startPoint.y;
+    setTimeout(() => {
+      // Check if the mouse is inside any room and highlight the room
+      for (const room of roomData) {
+        if (isPointInPolygon([offsetX, offsetY], room.coords)) {
+          setHighlightedRoom(room); // Set the highlighted room
+          highlightRoom(room);
+          return;
+        }
+      }
+
+      // Reset the highlighted room if the mouse is not inside any room
+      setHighlightedRoom(null);
+      highlightRoom(null);
+    }, [1]);
+
+    if (!isDrawing || !ctrlPressed) return; // Only update if the user is drawing
 
     // Update the current box dimensions
     setCurrentBox({
@@ -162,10 +317,26 @@ const FloorPlanImage = ({
 
     setIsDrawing(false); // End drawing
     if (currentBox) {
-      const newBox = { ...currentBox, label: "uknown" };
+      const newBox = { ...currentBox, label: "door" };
       setCurrentBoundingBoxes((prevBoxes) => [...prevBoxes, newBox]); // Add new box to the list
       setBoxToLabel(newBox); // Set the box to label
-      setShowModal(true); // Show the modal for labeling
+      // setShowModal(true); // Show the modal for labeling
+    }
+  };
+
+  // Handle right-click event for labeling the bounding box
+  const handleRightClick = (e) => {
+    e.preventDefault(); // Prevent the default right-click menu
+    const { offsetX, offsetY } = e.nativeEvent;
+    const clickedPoint = [offsetX, offsetY];
+
+    // Check if the clicked point is inside any room
+    for (const room of roomData) {
+      if (isPointInPolygon(clickedPoint, room.coords)) {
+        setRoomToLabel(room);
+        setShowModal(true);
+        return;
+      }
     }
   };
 
@@ -185,14 +356,15 @@ const FloorPlanImage = ({
       const labelToUse = selectedLabel || customLabel;
       if (labelToUse) {
         // Update the bounding box with the selected or custom label
-        const updatedBoxes = currentBoundingBoxes.map((box) =>
-          box === boxToLabel ? { ...box, label: labelToUse } : box
+        const updatedRooms = roomData.map((room) =>
+          room === roomToLabel ? { ...room, label: labelToUse } : room
         );
-        setCurrentBoundingBoxes(updatedBoxes);
+        setRoomData(updatedRooms);
       }
       setShowModal(false);
       setSelectedLabel("");
       setCustomLabel("");
+      setImageCursor("grab");
     }
   };
 
@@ -202,6 +374,7 @@ const FloorPlanImage = ({
       prevBoxes.filter((box) => box !== boxToLabel)
     );
     setShowModal(false);
+    setImageCursor("grab");
   };
 
   useEffect(() => {
@@ -214,56 +387,85 @@ const FloorPlanImage = ({
     }
   }, [imageIsGrabbed, ctrlPressed]);
 
+  // console.log(roomData);
+
   return (
-    <>
-      <Rectangle
-        onMouseDown={grabImage}
-        onMouseUp={leaveImage}
-        style={{ cursor: imageCursor }}
-      >
-        {/* Zoom and Pan functionality */}
-        <TransformWrapper
-          initialScale={1}
-          initialPositionX={0}
-          initialPositionY={0}
-          disabled={ctrlPressed} // Disable pan and zoom when Ctrl is pressed
+    <div>
+      <p style={{ color: "rgb(31, 87, 90)" }}>
+        Current Room: {highlightedRoom ? highlightedRoom.label : "-"}
+      </p>
+      {!imageSrc && (
+        <input
+          type="file"
+          accept="image/*"
+          onChange={handleImageChange}
+          style={{ padding: "10px", fontSize: "16px" }}
+        />
+      )}
+
+      {imageSrc && (
+        <Rectangle
+          onMouseDown={grabImage}
+          onMouseUp={leaveImage}
+          style={{
+            cursor: imageCursor,
+            width: "100%",
+            height: "100%",
+          }}
         >
-          <ImageContainer
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
+          <TransformWrapper
+            initialScale={1.2}
+            initialPositionX={0}
+            initialPositionY={0}
+            disabled={ctrlPressed}
           >
-            <TransformComponent>
-              <img
-                ref={imageRef}
-                src={imageSrc}
-                alt="Panable and Zoomable"
-                style={{
-                  width: "100%", // Ensure image scales to fit the container
-                  height: "auto", // Maintain aspect ratio
-                  objectFit: "contain", // Ensures the image stays inside the box
-                }}
-              />
-              <canvas
-                ref={canvasRef}
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  pointerEvents: "none", // Make canvas non-interactive except for the image
-                }}
-              />
-            </TransformComponent>
-          </ImageContainer>
-        </TransformWrapper>
-      </Rectangle>
+            <ImageContainer
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onContextMenu={handleRightClick} // Right-click event
+            >
+              <TransformComponent>
+                <img
+                  ref={imageRef}
+                  src={imageSrc}
+                  alt="Uploaded Floor Plan"
+                  style={{
+                    width: "100%",
+                    height: "auto",
+                    objectFit: "contain",
+                  }}
+                />
+                <canvas
+                  ref={canvasRef}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    pointerEvents: "none",
+                  }}
+                />
+                <canvas
+                  ref={canvasRoomsRef}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    pointerEvents: "none",
+                  }}
+                />
+              </TransformComponent>
+            </ImageContainer>
+          </TransformWrapper>
+        </Rectangle>
+      )}
 
       {/* Modal for labeling the bounding box */}
       {showModal && (
         <div className="modal">
           <div className="modal-content">
             <h2 style={{ fontSize: "16px", marginBottom: "20px" }}>
-              Label the Bounding Box
+              Label the {roomToLabel.label}
             </h2>
             <label>Choose Label:</label>
             <select value={selectedLabel} onChange={handleLabelChange}>
@@ -293,7 +495,7 @@ const FloorPlanImage = ({
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 };
 

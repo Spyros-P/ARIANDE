@@ -6,7 +6,7 @@ import { containerStyle } from "./AnnotateFloorPlan.js";
 const AnnotateFloorPlan = () => {
   const [currentBoundingBoxes, setCurrentBoundingBoxes] = useState([]);
   const [detectedBoundingBoxes, setDetectedBoundingBoxes] = useState([
-    { x: 100, y: 100, width: 60, height: 70, label: "uknown" },
+    { x: 100, y: 100, width: 60, height: 70, label: "door" },
   ]);
   const [highlightedBox, setHighlightedBox] = useState(null);
 

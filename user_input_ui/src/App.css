@@ -6,6 +6,7 @@ body {
   padding: 0; /* Remove default padding */
   display: flex; /* Use flexbox to allow the content to be flexible */
   flex-direction: column; /* Stack the children elements vertically (optional) */
+  font-family: "Poppins", sans-serif;
 }
 
 /* Ensure the main content fills the screen */
