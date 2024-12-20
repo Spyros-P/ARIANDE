@@ -18,7 +18,15 @@ export const ObjectCard = ({
 }) => {
   const [btnIsHovered, setBtnIsHovered] = useState(false);
   return (
-    <div style={cardStyle}>
+    <div
+      style={cardStyle}
+      onMouseEnter={() => {
+        onSelectDelete(startCoords.x, startCoords.y, width, height);
+      }}
+      onMouseLeave={() => {
+        onSelectDelete(null);
+      }}
+    >
       <h3 style={titleStyle}>
         Object {number}: {objectType}
       </h3>
@@ -43,11 +51,11 @@ export const ObjectCard = ({
         }}
         onMouseEnter={() => {
           setBtnIsHovered(true);
-          onSelectDelete(startCoords.x, startCoords.y, width, height);
+          // onSelectDelete(startCoords.x, startCoords.y, width, height);
         }} // Hover starts
         onMouseLeave={() => {
           setBtnIsHovered(false);
-          onSelectDelete(null);
+          // onSelectDelete(null);
         }} // Hover ends
         onClick={() =>
           onDeleteCard(startCoords.x, startCoords.y, width, height)
