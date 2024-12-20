@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { ImageContainer, Rectangle } from "./FloorPlanImage";
 import { drawLightPolygon } from "../../utils/drawPolygon";
+
 const isPointInPolygon = (point, polygon) => {
   let [x, y] = point;
   let isInside = false;
@@ -16,6 +17,7 @@ const isPointInPolygon = (point, polygon) => {
 };
 
 const FloorPlanImage = ({
+  setCurrentFileName,
   currentBoundingBoxes,
   setCurrentBoundingBoxes,
   setDetectedBoundingBoxes,
@@ -34,6 +36,8 @@ const FloorPlanImage = ({
   const [customLabel, setCustomLabel] = useState(""); // Custom label text
   const [boxToLabel, setBoxToLabel] = useState(null); // The bounding box that needs labeling
   const [imageSrc, setImageSrc] = useState(null); // State to store the uploaded image
+  // const [currentCsvRecords, setCurrentCsvRecords] = useState([]);
+  // const [currentCsvRecord, setCurrentCsvRecord] = useState([]);
   const [highlightedRoom, setHighlightedRoom] = useState(null); // Room to be highlighted
   const [roomData, setRoomData] = useState([
     {
@@ -181,6 +185,8 @@ const FloorPlanImage = ({
   // Handle image file selection
   const handleImageChange = (e) => {
     const file = e.target.files[0];
+    setCurrentFileName(file.name);
+    console.log(file);
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -309,12 +315,29 @@ const FloorPlanImage = ({
       width: width,
       height: height,
     });
+    // setCurrentCsvRecord({
+    //   filename: fileName,
+    //   width: 500,
+    //   height: 500,
+    //   class: "door",
+    //   xmin: startPoint.x,
+    //   ymin: startPoint.y,
+    //   xmax: startPoint.x + width,
+    //   ymax: startPoint.y + height,
+    // });
+
+    // setCurrentCsvRecords(
+    //   `${fileName}, 500, 500, door, ${startPoint.x}, ${startPoint.y}, ${
+    //     startPoint.x + width
+    //   }, ${startPoint.y + height}`
+    // );
   };
 
   // Mouse up event to finalize the bounding box and trigger the modal
   const handleMouseUp = () => {
     if (!isDrawing) return; // Only add the box if drawing is in progress
-
+    // console.log(currentCsvRecords);
+    // setCurrentCsvRecords([...currentCsvRecords, currentCsvRecord]);
     setIsDrawing(false); // End drawing
     if (currentBox) {
       const newBox = { ...currentBox, label: "door" };
@@ -391,9 +414,12 @@ const FloorPlanImage = ({
 
   return (
     <div>
-      <p style={{ color: "rgb(31, 87, 90)" }}>
-        Current Room: {highlightedRoom ? highlightedRoom.label : "-"}
-      </p>
+      {imageSrc && (
+        <p style={{ color: "rgb(31, 87, 90)" }}>
+          Current Room: {highlightedRoom ? highlightedRoom.label : "-"}
+        </p>
+      )}
+
       {!imageSrc && (
         <input
           type="file"
