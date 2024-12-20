@@ -548,7 +548,7 @@ def in_range(min, max) -> Callable[[MatLike], MatLike]:
         return cv2.inRange(image, min, max)
     return func
 
-def morph_open( kernel) -> Callable[[MatLike], MatLike]:
+def morph_open(kernel) -> Callable[[MatLike], MatLike]:
     def func(image):
         return cv2.morphologyEx(image, cv2.MORPH_OPEN, kernel)
     return func
@@ -565,7 +565,10 @@ def apply_filters(image, filters) -> MatLike:
     return result
 
 def kernel(size) -> np.ndarray:
-    return np.ones((size, size), np.uint8)
+    # TODO: This is going to get deprecated
+    # return np.ones((size, size), np.uint8)
+    return cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (size, size))
+
 
 def invert(image) -> MatLike:
     return cv2.bitwise_not(image)
@@ -579,6 +582,11 @@ def line_is_inside_contour(line, contour_polygons):
     """Function to check if a line segment is inside any contour"""
     line_obj = LineString(line)
     return any(line_obj.within(p) for p in contour_polygons)
+
+def line_is_outside_contour(line, contour_polygons):
+    """Function to check if a line segment is outside any contour"""
+    line_obj = LineString(line)
+    return any(line_obj.touches(p) for p in contour_polygons)
 
 
 ## For testing purposes ##
