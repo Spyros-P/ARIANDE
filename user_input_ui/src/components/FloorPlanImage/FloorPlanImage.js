@@ -14,3 +14,18 @@ export const ImageContainer = styled.div`
   height: 100%;
   overflow: hidden; // Hide any part of image that goes out of bounds
 `;
+
+export const currentRoom = { color: "rgb(31, 87, 90)" };
+
+export const currentRoomContainer = {
+  width: "100%",
+  display: "flex",
+  justifyContent: "center",
+  backgroundColor: "rgb(216, 248, 243)",
+};
+
+export const buttonsContainer = {
+  display: "flex",
+  flexDirection: "row",
+  gap: 10,
+};

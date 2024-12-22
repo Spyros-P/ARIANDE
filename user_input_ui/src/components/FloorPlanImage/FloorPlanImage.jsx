@@ -1,6 +1,13 @@
 import React, { useState, useRef, useEffect } from "react";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
-import { ImageContainer, Rectangle } from "./FloorPlanImage";
+import {
+  ImageContainer,
+  Rectangle,
+  buttonsContainer,
+  container,
+  currentRoom,
+  currentRoomContainer,
+} from "./FloorPlanImage";
 import { drawLightPolygon } from "../../utils/drawPolygon";
 
 const isPointInPolygon = (point, polygon) => {
@@ -17,6 +24,8 @@ const isPointInPolygon = (point, polygon) => {
 };
 
 const FloorPlanImage = ({
+  generateCSV,
+  setImageDimensions,
   setCurrentFileName,
   currentBoundingBoxes,
   setCurrentBoundingBoxes,
@@ -184,13 +193,26 @@ const FloorPlanImage = ({
 
   // Handle image file selection
   const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    setCurrentFileName(file.name);
-    console.log(file);
+    const file = e.target.files[0]; // Get the selected file
     if (file) {
+      console.log(file);
+      setCurrentFileName(file.name);
+
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImageSrc(reader.result); // Set image source to the result of FileReader
+        const imageSrc = reader.result;
+        setImageSrc(imageSrc); // Set image source to the result of FileReader
+
+        // Create an Image object to load the image and retrieve dimensions
+        const img = new Image();
+        img.onload = () => {
+          console.log("Image Width:", img.width);
+          console.log("Image Height:", img.height);
+
+          // Optionally store the dimensions in the state
+          setImageDimensions({ width: img.width, height: img.height });
+        };
+        img.src = imageSrc; // Trigger the image load
       };
       reader.readAsDataURL(file); // Read the file as a data URL
     }
@@ -415,9 +437,11 @@ const FloorPlanImage = ({
   return (
     <div>
       {imageSrc && (
-        <p style={{ color: "rgb(31, 87, 90)" }}>
-          Current Room: {highlightedRoom ? highlightedRoom.label : "-"}
-        </p>
+        <div style={currentRoomContainer}>
+          <p style={currentRoom}>
+            Current Room: {highlightedRoom ? highlightedRoom.label : "-"}
+          </p>
+        </div>
       )}
 
       {!imageSrc && (
@@ -425,7 +449,18 @@ const FloorPlanImage = ({
           type="file"
           accept="image/*"
           onChange={handleImageChange}
-          style={{ padding: "10px", fontSize: "16px" }}
+          style={{
+            padding: "10px 20px", // Padding for a larger clickable area
+            fontSize: "16px", // Easy-to-read font size
+            borderRadius: "8px", // Smooth rounded corners
+            border: "2px solid #1f575a", // Stylish border with your color
+            backgroundColor: "#f4f4f4", // Light background for contrast
+            color: "#1f575a", // Match text color with the border
+            cursor: "pointer", // Pointer cursor for better affordance
+            transition: "all 0.3s ease", // Smooth hover effects
+            outline: "none", // Removes the default focus outline
+            boxShadow: "0 2px 5px rgba(0, 0, 0, 0.2)", // Subtle shadow for depth
+          }}
         />
       )}
 
@@ -519,6 +554,22 @@ const FloorPlanImage = ({
               </button>
             </div>
           </div>
+        </div>
+      )}
+      {imageSrc && (
+        <div style={buttonsContainer}>
+          {" "}
+          <button
+            className="cancel"
+            onClick={() => {
+              setImageSrc(null);
+              setCurrentBoundingBoxes([]);
+              setDetectedBoundingBoxes([]);
+            }}
+          >
+            Back
+          </button>
+          <button onClick={generateCSV}>Download csv</button>
         </div>
       )}
     </div>

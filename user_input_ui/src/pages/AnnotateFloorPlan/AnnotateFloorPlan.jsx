@@ -10,6 +10,10 @@ const AnnotateFloorPlan = () => {
   ]);
   const [highlightedBox, setHighlightedBox] = useState(null);
   const [currentFileName, setCurrentFileName] = useState("");
+  const [imageDimensions, setImageDimensions] = useState({
+    width: 0,
+    height: 0,
+  });
 
   const onDeleteCard = (x, y, w, h, i) => {
     i === 1
@@ -37,8 +41,8 @@ const AnnotateFloorPlan = () => {
       .concat(detectedBoundingBoxes)
       .map((box) => ({
         filename: currentFileName,
-        width: 500,
-        height: 500,
+        width: imageDimensions.width,
+        height: imageDimensions.height,
         class: "door",
         xmin: box.x,
         ymin: box.y,
@@ -74,6 +78,8 @@ const AnnotateFloorPlan = () => {
     // <CardList cards={[1, 2, 3]} title={"Model's Bounding Boxes"}></CardList>
     <div style={containerStyle}>
       <FloorPlanImage
+        generateCSV={generateCSV}
+        setImageDimensions={setImageDimensions}
         setCurrentFileName={setCurrentFileName}
         highlightedBox={highlightedBox}
         currentBoundingBoxes={currentBoundingBoxes}
@@ -98,9 +104,6 @@ const AnnotateFloorPlan = () => {
         title={"My Bounding Boxes"}
         onSelectDelete={onSelectDelete}
       ></CardList>
-      <button className="cancel" onClick={generateCSV}>
-        Download csv
-      </button>
     </div>
   );
 };
