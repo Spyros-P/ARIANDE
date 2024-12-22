@@ -5,11 +5,11 @@ import json
 app = Flask(__name__)
 
 # Path to image dataset
-#IMAGE_FOLDER = "../YOLO/Floor-Plan/test/images"
+# IMAGE_FOLDER = "../YOLO/Floor-Plan/train/images"
 IMAGE_FOLDER = "assets/images"
 # Path to save bounding box labels
 LABELS_FOLDER = "assets/labels"
-# LABELS_FOLDER = "../YOLO/Floor-Plan/test/labels"
+# LABELS_FOLDER = "../YOLO/Floor-Plan/train/labels"
 
 # Load image file names
 image_files = sorted([f for f in os.listdir(IMAGE_FOLDER) if f.endswith(('jpg', 'jpeg', 'png'))])
@@ -19,9 +19,11 @@ if not os.path.exists(LABELS_FOLDER):
     os.makedirs(LABELS_FOLDER)
 
 for image in image_files:
-    label_file = os.path.join(LABELS_FOLDER, f"{image.split('.')[0]}.txt")
-    if not os.path.exists(label_file):
-        with open(label_file, 'w') as f:
+    file_id = image.split('.')[0]
+    folder_files = os.listdir(LABELS_FOLDER)
+    # check if there is a file starting with the image name
+    if not any([file_id in file for file in folder_files]):
+        with open(os.path.join(LABELS_FOLDER, file_id+'.txt'), 'w') as f:
             f.write("")
 
 boxes_files = sorted([f for f in os.listdir(LABELS_FOLDER) if f.endswith('txt')])

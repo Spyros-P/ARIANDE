@@ -1,5 +1,7 @@
 let image = document.getElementById("image");
 let zoomLevel = 1;
+let min_zoom = 1;
+let max_zoom = 1;
 let transformOriginX = 50;
 let transformOriginY = 50;
 let transoffsetX = 0;
@@ -10,6 +12,20 @@ let translateY = 0;
 let canvas = document.getElementById('boxes-canvas');
 let container = document.getElementById('canvas-container');
 let ctx = canvas.getContext('2d');
+let img_container = document.getElementById('img-container');
+let imgContainerHeight = parseInt(window.getComputedStyle(img_container).height, 10);
+let imgContainerWidth = parseInt(window.getComputedStyle(img_container).width, 10);
+canvas.height = imgContainerHeight;
+canvas.width = imgContainerWidth;
+
+let fitX = 1;
+let fitY = 1;
+let X_in_middle = true;
+
+let BoundTop = 0;
+let BoundBottom = 100;
+let BoundLeft = 0;
+let BoundRight = 100;
 // create a list of 4-points bounding boxes
 let boxes = [];
 let pointX, pointY;
@@ -17,9 +33,14 @@ let isDragging = false;
 let imageIndex=0;
 let colors  = ["blue", "orange", "green", "red", "purple", "brown", "pink", "gray", "cyan", "magenta"];
 
+let filled_boxes = [];
+
 let object_id = 0;
 
 let startX, startY;
+
+ctx.fillStyle = 'white';
+ctx.fillRect(0, 0, canvas.width, canvas.height);
 
 // Handle zoom with the mouse wheel
 image.addEventListener("wheel", (event) => {
@@ -43,8 +64,8 @@ image.addEventListener("wheel", (event) => {
     const posY = (arrowY - lefttopY)*zoomLevel;
 
     // Adjust zoom level and limit it to prevent the image from being smaller than its container
-    let newZoomLevel = zoomLevel + event.deltaY * -0.002;
-    newZoomLevel = Math.min(Math.max(1, newZoomLevel), 10);  // Limit zoom level between 1x (original size) and 3x
+    let newZoomLevel = zoomLevel * (1 + event.deltaY * -0.001);
+    newZoomLevel = Math.min(Math.max(min_zoom, newZoomLevel), max_zoom);  // Limit zoom level between 1x (original size) and 3x
 
     // Apply new zoom level only if it's within bounds
     if (newZoomLevel !== zoomLevel) {
@@ -56,23 +77,37 @@ image.addEventListener("wheel", (event) => {
         transformOriginX = arrowX;
         transformOriginY = arrowY;
 
-        lefttopX = arrowX*(1 - 1/newZoomLevel) - transoffsetX;
+        if (X_in_middle) {
+            const width = fitX*100*min_zoom/newZoomLevel;
+            const midX = 50 - transoffsetX - (50 - arrowX)*(1 - 1/newZoomLevel);
+            lefttopX = midX - width/2;
+            rightbottomX = midX + width/2;
+            if (lefttopX < BoundLeft) {
+                transoffsetX = 50 - (50 - arrowX)*(1 - 1/newZoomLevel) - width/2 - BoundLeft;
+            }
+            if (rightbottomX > BoundRight) {
+                transoffsetX = 50 - (50 - arrowX)*(1 - 1/newZoomLevel) + width/2 - BoundRight;
+            }
+        }
+        else {
+            lefttopX = arrowX*(1 - 1/newZoomLevel) - transoffsetX;
+                rightbottomX = arrowX*(1 - 1/newZoomLevel) + fitX*100*min_zoom/newZoomLevel - transoffsetX;
+            if(lefttopX < BoundLeft) {
+                transoffsetX = transformOriginX*(1 - 1/newZoomLevel) - BoundLeft;
+            }
+            if(rightbottomX > BoundRight) {
+                transoffsetX = transformOriginX*(1 - 1/newZoomLevel) + fitX*100*min_zoom/newZoomLevel - BoundRight;
+            }
+        }
         lefttopY = arrowY*(1 - 1/newZoomLevel) - transoffsetY;
-        rightbottomX = arrowX*(1 - 1/newZoomLevel) + 100/newZoomLevel - transoffsetX;
-        rightbottomY = arrowY*(1 - 1/newZoomLevel) + 100/newZoomLevel - transoffsetY;
+        rightbottomY = arrowY*(1 - 1/newZoomLevel) + fitY*100*min_zoom/newZoomLevel - transoffsetY;
 
         // check if the image is out of range
-        if(lefttopX < 0) {
-            transoffsetX = transformOriginX*(1 - 1/newZoomLevel);
+        if(lefttopY < BoundTop) {
+            transoffsetY = transformOriginY*(1 - 1/newZoomLevel) - BoundTop;
         }
-        if(rightbottomX > 100) {
-            transoffsetX = transformOriginX*(1 - 1/newZoomLevel) + 100/newZoomLevel - 100;
-        }
-        if(lefttopY < 0) {
-            transoffsetY = transformOriginY*(1 - 1/newZoomLevel);
-        }
-        if(rightbottomY > 100) {
-            transoffsetY = transformOriginY*(1 - 1/newZoomLevel) + 100/newZoomLevel - 100;
+        if(rightbottomY > BoundBottom) {
+            transoffsetY = transformOriginY*(1 - 1/newZoomLevel) + fitY*100*min_zoom/newZoomLevel - BoundBottom;
         }
 
         zoomLevel = newZoomLevel;
@@ -99,8 +134,10 @@ image.addEventListener("wheel", (event) => {
             const topLeftY = Math.min(startY, arrowY);
             const bottomRightX = Math.max(startX, arrowX);
             const bottomRightY = Math.max(startY, arrowY);
+
+            const box = { id: object_id, x1: topLeftX, y1: topLeftY, x2: bottomRightX, y2: bottomRightY };
             
-            drawBoundingBox(topLeftX, topLeftY, bottomRightX, bottomRightY, colors[object_id]); // Draw the box
+            drawBoundingBox(box); // Draw the box
         }
     }
 });
@@ -123,23 +160,38 @@ image.addEventListener("mousedown", (event) => {
             transoffsetX += (deltaX / rect.width) * 100;
             transoffsetY += (deltaY / rect.height) * 100;
 
-            lefttopX = transformOriginX*(1 - 1/zoomLevel) - transoffsetX;
+            if (X_in_middle) {
+                const width = fitX*100*min_zoom/zoomLevel;
+                const midX = 50 - transoffsetX - (50 - transformOriginX)*(1 - 1/zoomLevel);
+                lefttopX = midX - width/2;
+                rightbottomX = midX + width/2;
+
+                if (lefttopX < BoundLeft) {
+                    transoffsetX = 50 - (50 - transformOriginX)*(1 - 1/zoomLevel) - width/2 - BoundLeft;
+                }
+                if (rightbottomX > BoundRight) {
+                    transoffsetX = 50 - (50 - transformOriginX)*(1 - 1/zoomLevel) + width/2 - BoundRight;
+                }
+            }
+            else {
+                lefttopX = transformOriginX*(1 - 1/zoomLevel) - transoffsetX;
+                rightbottomX = transformOriginX*(1 - 1/zoomLevel) + fitX*100*min_zoom/zoomLevel - transoffsetX;
+                if (lefttopX < BoundLeft) {
+                    transoffsetX = transformOriginX*(1 - 1/zoomLevel) - BoundLeft;
+                }
+                if (rightbottomX > BoundRight) {
+                    transoffsetX = transformOriginX*(1 - 1/zoomLevel) + fitX*100*min_zoom/zoomLevel - BoundRight;
+                }
+            }
             lefttopY = transformOriginY*(1 - 1/zoomLevel) - transoffsetY;
-            rightbottomX = transformOriginX*(1 - 1/zoomLevel) + 100/zoomLevel - transoffsetX;
-            rightbottomY = transformOriginY*(1 - 1/zoomLevel) + 100/zoomLevel - transoffsetY;
+            rightbottomY = transformOriginY*(1 - 1/zoomLevel) + fitY*100*min_zoom/zoomLevel - transoffsetY;
 
             // check if the image is out of range
-            if(lefttopX < 0) {
-                transoffsetX = transformOriginX*(1 - 1/zoomLevel);
+            if(lefttopY < BoundTop) {
+                transoffsetY = transformOriginY*(1 - 1/zoomLevel) - BoundTop;
             }
-            if(rightbottomX > 100) {
-                transoffsetX = transformOriginX*(1 - 1/zoomLevel) + 100/zoomLevel - 100;
-            }
-            if(lefttopY < 0) {
-                transoffsetY = transformOriginY*(1 - 1/zoomLevel);
-            }
-            if(rightbottomY > 100) {
-                transoffsetY = transformOriginY*(1 - 1/zoomLevel) + 100/zoomLevel - 100;
+            if(rightbottomY > BoundBottom) {
+                transoffsetY = transformOriginY*(1 - 1/zoomLevel) + fitY*100*min_zoom/zoomLevel - BoundBottom;
             }
 
             lastX = event.clientX;
@@ -166,7 +218,9 @@ image.addEventListener("mousedown", (event) => {
                 const bottomRightX = Math.max(startX, arrowX);
                 const bottomRightY = Math.max(startY, arrowY);
 
-                drawBoundingBox(topLeftX, topLeftY, bottomRightX, bottomRightY, colors[object_id]); // Draw the box
+                const box = { id: object_id, x1: topLeftX, y1: topLeftY, x2: bottomRightX, y2: bottomRightY };
+
+                drawBoundingBox(box); // Draw the box
             }
         }
     });
@@ -180,6 +234,43 @@ image.addEventListener("mousedown", (event) => {
         isDragging = false;
         image.classList.remove('dragging');
     });
+});
+
+// if cursor is on top of a bounding box, fill the box with a color (transparent)
+image.addEventListener("mousemove", (event) => {
+    const rect = image.getBoundingClientRect();
+    const offsetX = event.clientX - rect.left;
+    const offsetY = event.clientY - rect.top;
+
+    // Calculate the transform origin relative to the current zoom level
+    const arrowX = (offsetX / rect.width) * 100;
+    const arrowY = (offsetY / rect.height) * 100;
+
+    let new_filled_boxes = [];
+
+    for (let i = 0; i < boxes.length; i++) {
+        let box = boxes[i];
+        if (arrowX > box.x1 && arrowX < box.x2 && arrowY > box.y1 && arrowY < box.y2) {
+            new_filled_boxes.push(box);
+        }
+    }
+    // check if filled_boxes is different from new_filled_boxes
+    // check if each element in filled_boxes is in new_filled_boxes
+    if (filled_boxes.length == new_filled_boxes.length) {
+        let equal = true;
+        for (let j = 0; j < filled_boxes.length; j++) {
+            if (filled_boxes[j] !== new_filled_boxes[j]) {
+                equal = false;
+                break;
+            }
+        }
+        if (equal) {
+            return;
+        }
+    }
+    
+    filled_boxes = new_filled_boxes;
+    redrawBoundingBoxes();
 });
 
 image.addEventListener("click", (event) => {
@@ -219,8 +310,8 @@ document.addEventListener("keydown", (event) => {
 
 // on mouse hover
 image.addEventListener("mousemove", (event) => {
-    redrawBoundingBoxes();
     if (pointCount === 1) {
+        redrawBoundingBoxes();
         // Update transform origin based on mouse position and current zoom
         const rect = image.getBoundingClientRect();
         const offsetX = event.clientX - rect.left;
@@ -235,16 +326,17 @@ image.addEventListener("mousemove", (event) => {
         const topLeftY = Math.min(startY, arrowY);
         const bottomRightX = Math.max(startX, arrowX);
         const bottomRightY = Math.max(startY, arrowY);
+
+        const box = { id: object_id, x1: topLeftX, y1: topLeftY, x2: bottomRightX, y2: bottomRightY };
         
-        drawBoundingBox(topLeftX, topLeftY, bottomRightX, bottomRightY, colors[object_id]); // Draw the box
+        drawBoundingBox(box); // Draw the box
     }
 });
 
 function redrawBoundingBoxes() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     for (let i = 0; i < boxes.length; i++) {
-        let box = boxes[i];
-        drawBoundingBox(box.x1, box.y1, box.x2, box.y2, colors[box.id]);
+        drawBoundingBox(boxes[i]);
     }
 }
 
@@ -275,9 +367,11 @@ image.addEventListener("contextmenu", (event) => {
         const bottomRightX = Math.max(startX, arrowX);
         const bottomRightY = Math.max(startY, arrowY);
 
-        boxes.push({ id: object_id, x1: topLeftX, y1: topLeftY, x2: bottomRightX, y2: bottomRightY });
+        const box = { id: object_id, x1: topLeftX, y1: topLeftY, x2: bottomRightX, y2: bottomRightY };
+
+        boxes.push(box);
         
-        drawBoundingBox(topLeftX, topLeftY, bottomRightX, bottomRightY, colors[object_id]); // Draw the box
+        drawBoundingBox(box); // Draw the box
         pointCount = 0; // Reset for the next bounding box
 
         // make a post request to save the bounding box
@@ -318,15 +412,28 @@ function plotPoint(x, y, color) {
 }
 
 // Function to draw a bounding box on the image
-function drawBoundingBox(x1, y1, x2, y2, color) {
-    let lefttopX = transformOriginX*(1 - 1/zoomLevel) - transoffsetX;
-    let lefttopY = transformOriginY*(1 - 1/zoomLevel) - transoffsetY;
+function drawBoundingBox(box) {
+    let lefttopX, lefttopY;
 
-    const posX1 = (x1 - lefttopX)*zoomLevel;
-    const posY1 = (y1 - lefttopY)*zoomLevel;
+    if (X_in_middle) {
+        const width = fitX*100*min_zoom/zoomLevel;
+        const midX = 50 - transoffsetX - (50 - transformOriginX)*(1 - 1/zoomLevel);
+        lefttopX = midX - width/2;
+    }
+    else {
+        lefttopX = transformOriginX*(1 - 1/zoomLevel) - transoffsetX;
+    }
+    lefttopY = transformOriginY*(1 - 1/zoomLevel) - transoffsetY;
 
-    const posX2 = (x2 - lefttopX)*zoomLevel;
-    const posY2 = (y2 - lefttopY)*zoomLevel;
+    console.log(`lefttopX: ${lefttopX}, lefttopY: ${lefttopY}`);
+
+    const posX1 = (box.x1 - lefttopX)/fitX*zoomLevel/min_zoom;
+    const posY1 = (box.y1 - lefttopY)/fitY*zoomLevel/min_zoom;
+
+    const posX2 = (box.x2 - lefttopX)/fitX*zoomLevel/min_zoom;
+    const posY2 = (box.y2 - lefttopY)/fitY*zoomLevel/min_zoom;
+
+    console.log(`posX1: ${posX1}, posY1: ${posY1}, posX2: ${posX2}, posY2: ${posY2}`);
 
     // get dimensions of the image
     x1 = posX1 * canvas.width / 100;
@@ -340,7 +447,7 @@ function drawBoundingBox(x1, y1, x2, y2, color) {
     ctx.lineTo(x2, y2);
     ctx.lineTo(x1, y2);
     ctx.lineTo(x1, y1);
-    ctx.strokeStyle = color;
+    ctx.strokeStyle = colors[box.id];
     ctx.lineWidth = 2;
     ctx.stroke();
 
@@ -349,6 +456,11 @@ function drawBoundingBox(x1, y1, x2, y2, color) {
     ctx.arc(x2, y1, 7, 0, 2 * Math.PI);
     ctx.fillStyle = 'red';
     ctx.fill();
+
+    if (filled_boxes.includes(box)) {
+        ctx.fillStyle = 'rgba(100, 100, 100, 0.2)';
+        ctx.fillRect(x1, y1, x2-x1, y2-y1);
+    }
 }
 
 function saveBoundingBox(object_id, x1, y1, x2, y2) {
@@ -438,6 +550,7 @@ function get_image(url) {
         })
         .catch(error => console.error('Error fetching next image data:', error));
 
+
     pointCount = 0;
     isDragging = false;
     transformOriginX = 50;
@@ -445,20 +558,63 @@ function get_image(url) {
     transoffsetX = 0;
     transoffsetY = 0;
     zoomLevel = 1;
-    image.style.transformOrigin = `${transformOriginX}% ${transformOriginY}%`;
-    image.style.transform = `scale(${zoomLevel}) translate(${transoffsetX}%, ${transoffsetY}%)`;
+
 
     image.onload = () => {
-        // resize the canvas according to the image size
-        let imageWidth = image.width;
-        let imageHeight = image.height;
-        canvas.width = imageWidth;
-        canvas.height = imageHeight;
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // change the image-container size
-        let container = document.getElementById('img-container');
-        container.style.width = `${imageWidth}px`;
-        container.style.height = `${imageHeight}px`;
+        const scaleX = canvas.width / image.naturalWidth;
+        const scaleY = canvas.height / image.naturalHeight;
+
+        let scale = Math.min(scaleX, scaleY);
+
+        if (scaleX >= 1) {
+            transoffsetX = 0;
+            X_in_middle = true;
+        }
+        else {
+            transoffsetX = Math.max(scaleX/scaleY, 1) * (canvas.width - image.naturalWidth) / canvas.width * 100 / 2;
+            X_in_middle = false;
+        }
+
+        transoffsetY = Math.max(scaleY/scaleX, 1) * (canvas.height - image.naturalHeight) / canvas.height * 100 / 2;
+        
+        // console.log(`transX: ${transoffsetX}, transY: ${transoffsetY}`);
+
+        // resize the canvas according to the image size
+        zoomLevel = scale;
+        image.style.transformOrigin = `${transformOriginX}% ${transformOriginY}%`;
+        image.style.transform = `scale(${zoomLevel}) translate(${transoffsetX}%, ${transoffsetY}%)`;
+
+        min_zoom = scale;
+        max_zoom = Math.max(scale, 10/scale)
+
+        if (scaleX < scaleY) {
+            fitX = 1;
+            fitY = scaleY/scaleX;
+        }
+        else {
+            fitX = scaleX/scaleY;
+            fitY = 1;
+        }
+
+        // console.log(`fitX: ${fitX*100}%, fitY: ${fitY*100}%`);
+
+        if (X_in_middle) {
+            const width = fitX*100*min_zoom/zoomLevel;
+            const midX = 50 - transoffsetX - (50 - transformOriginX)*(1 - 1/zoomLevel);
+            BoundLeft = midX - width/2;
+            BoundRight = midX + width/2;
+        }
+        else {
+            BoundLeft = transformOriginX*(1 - 1/zoomLevel) - transoffsetX;
+            BoundRight = transformOriginX*(1 - 1/zoomLevel) + fitX*100*min_zoom/zoomLevel - transoffsetX;
+        }
+        BoundTop = transformOriginY*(1 - 1/zoomLevel) - transoffsetY;
+        BoundBottom = transformOriginY*(1 - 1/zoomLevel) + fitY*100*min_zoom/zoomLevel - transoffsetY;
+
+        // console.log(`BoundLeft: ${BoundLeft}, BoundTop: ${BoundTop}, BoundRight: ${BoundRight}, BoundBottom: ${BoundBottom}`);
 
         redrawBoundingBoxes();
     }
