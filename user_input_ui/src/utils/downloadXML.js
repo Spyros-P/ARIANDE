@@ -70,7 +70,7 @@ export const generateAndDownloadXML = (
   const link = document.createElement("a");
 
   // Set the download attribute with the file name
-  link.download = `${currentFileName}.xml`;
+  link.download = `${currentFileName.split(".")[0]}.xml`;
 
   // Create an object URL for the Blob and set it as the href
   link.href = URL.createObjectURL(blob);

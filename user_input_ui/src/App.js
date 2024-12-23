@@ -6,30 +6,30 @@ import "./App.css";
 import AnnotateFloorPlan from "./pages/AnnotateFloorPlan/AnnotateFloorPlan.jsx";
 
 const router = createBrowserRouter([
+  // {
+  //   path: "/",
+  //   element: (
+  //     <React.Fragment>
+  //       <AnnotateImage />
+  //     </React.Fragment>
+  //   ),
+  // },
   {
     path: "/",
-    element: (
-      <React.Fragment>
-        <AnnotateImage />
-      </React.Fragment>
-    ),
-  },
-  {
-    path: "/annotatefp",
     element: (
       <React.Fragment>
         <AnnotateFloorPlan />
       </React.Fragment>
     ),
   },
-  {
-    path: "/annotator",
-    element: (
-      <React.Fragment>
-        <ImageAnnotator />
-      </React.Fragment>
-    ),
-  },
+  // {
+  //   path: "/annotator",
+  //   element: (
+  //     <React.Fragment>
+  //       <ImageAnnotator />
+  //     </React.Fragment>
+  //   ),
+  // },
 ]);
 
 class App extends Component {
