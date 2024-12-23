@@ -24,6 +24,7 @@ const isPointInPolygon = (point, polygon) => {
 };
 
 const FloorPlanImage = ({
+  generateXML,
   generateCSV,
   setImageDimensions,
   setCurrentFileName,
@@ -210,7 +211,12 @@ const FloorPlanImage = ({
           console.log("Image Height:", img.height);
 
           // Optionally store the dimensions in the state
-          setImageDimensions({ width: img.width, height: img.height });
+          setImageDimensions({
+            width: img.width,
+            height: img.height,
+            depth: 3,
+          });
+          console.log(img);
         };
         img.src = imageSrc; // Trigger the image load
       };
@@ -569,7 +575,10 @@ const FloorPlanImage = ({
           >
             Back
           </button>
-          <button onClick={generateCSV}>Download csv</button>
+          <button onClick={generateCSV}>Download CSV</button>
+          <button className="yellow" onClick={generateXML}>
+            Download XML
+          </button>
         </div>
       )}
     </div>

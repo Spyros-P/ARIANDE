@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { CardList } from "../../components/CardList/CardList.jsx";
 import FloorPlanImage from "../../components/FloorPlanImage/FloorPlanImage.jsx";
 import { containerStyle } from "./AnnotateFloorPlan.js";
-import Papa from "papaparse";
+import { generateAndDownloadCSV } from "../../utils/downloadCSV.js";
+import { generateAndDownloadXML } from "../../utils/downloadXML.js";
 const AnnotateFloorPlan = () => {
   const [currentBoundingBoxes, setCurrentBoundingBoxes] = useState([]);
   const [detectedBoundingBoxes, setDetectedBoundingBoxes] = useState([
@@ -13,6 +14,7 @@ const AnnotateFloorPlan = () => {
   const [imageDimensions, setImageDimensions] = useState({
     width: 0,
     height: 0,
+    depth: 3,
   });
 
   const onDeleteCard = (x, y, w, h, i) => {
@@ -35,49 +37,26 @@ const AnnotateFloorPlan = () => {
     setHighlightedBox({ x: x, y: y, width: w, height: h });
   };
 
-  const generateCSV = () => {
-    console.log(currentBoundingBoxes);
-    const csvData = currentBoundingBoxes
-      .concat(detectedBoundingBoxes)
-      .map((box) => ({
-        filename: currentFileName,
-        width: imageDimensions.width,
-        height: imageDimensions.height,
-        class: "door",
-        xmin: box.x,
-        ymin: box.y,
-        xmax: box.x + box.width,
-        ymax: box.y + box.height,
-      }));
-    // Convert data to CSV using PapaParse
-    const csv = Papa.unparse(csvData);
+  const generateCSV = () =>
+    generateAndDownloadCSV(
+      currentBoundingBoxes,
+      detectedBoundingBoxes,
+      currentFileName,
+      imageDimensions
+    );
 
-    // Create a Blob from the CSV string
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-
-    // Create a link element
-    const link = document.createElement("a");
-
-    // Set the download attribute with the file name
-    link.download = "data.csv";
-
-    // Create an object URL for the Blob and set it as the href
-    link.href = URL.createObjectURL(blob);
-
-    // Append the link to the document body
-    document.body.appendChild(link);
-
-    // Programmatically trigger a click event to download the file
-    link.click();
-
-    // Clean up by removing the link element
-    document.body.removeChild(link);
-  };
-
+  const generateXML = () =>
+    generateAndDownloadXML(
+      currentBoundingBoxes,
+      detectedBoundingBoxes,
+      imageDimensions,
+      currentFileName
+    );
   return (
     // <CardList cards={[1, 2, 3]} title={"Model's Bounding Boxes"}></CardList>
     <div style={containerStyle}>
       <FloorPlanImage
+        generateXML={generateXML}
         generateCSV={generateCSV}
         setImageDimensions={setImageDimensions}
         setCurrentFileName={setCurrentFileName}
