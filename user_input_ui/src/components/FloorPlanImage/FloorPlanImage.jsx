@@ -7,8 +7,13 @@ import {
   container,
   currentRoom,
   currentRoomContainer,
+  errorMessage,
+  imageContainer,
 } from "./FloorPlanImage";
 import { drawLightPolygon } from "../../utils/drawPolygon";
+import FileInputComponent from "../FileInput/FileInput.jsx";
+
+const validFileTypes = ["png", "jpeg", "jpg"];
 
 const isPointInPolygon = (point, polygon) => {
   let [x, y] = point;
@@ -46,9 +51,12 @@ const FloorPlanImage = ({
   const [customLabel, setCustomLabel] = useState(""); // Custom label text
   const [boxToLabel, setBoxToLabel] = useState(null); // The bounding box that needs labeling
   const [imageSrc, setImageSrc] = useState(null); // State to store the uploaded image
+  const [fileType, setFileType] = useState(null);
+  const [fileTypeError, setFileTypeError] = useState("");
   // const [currentCsvRecords, setCurrentCsvRecords] = useState([]);
   // const [currentCsvRecord, setCurrentCsvRecord] = useState([]);
   const [highlightedRoom, setHighlightedRoom] = useState(null); // Room to be highlighted
+
   const [roomData, setRoomData] = useState([
     {
       floor: 0,
@@ -192,35 +200,49 @@ const FloorPlanImage = ({
     };
   }, []);
 
+  useEffect(() => {
+    if (
+      !validFileTypes.includes(fileType) &&
+      fileType !== "" &&
+      fileType !== null
+    ) {
+      setFileTypeError(`${fileType} is not supported!`);
+    } else {
+      setFileTypeError("");
+    }
+  }, [fileType]);
+
   // Handle image file selection
   const handleImageChange = (e) => {
     const file = e.target.files[0]; // Get the selected file
     if (file) {
-      console.log(file);
+      setFileType(file.type.split("/")[1]);
       setCurrentFileName(file.name);
+      console.log("HAHA", file.type.split("/")[1]);
+      if (validFileTypes.includes(file.type.split("/")[1])) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const imageSrc = reader.result;
+          setImageSrc(imageSrc); // Set image source to the result of FileReader
 
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const imageSrc = reader.result;
-        setImageSrc(imageSrc); // Set image source to the result of FileReader
+          // Create an Image object to load the image and retrieve dimensions
+          const img = new Image();
+          img.onload = () => {
+            console.log("Image Width:", img.width);
+            console.log("Image Height:", img.height);
 
-        // Create an Image object to load the image and retrieve dimensions
-        const img = new Image();
-        img.onload = () => {
-          console.log("Image Width:", img.width);
-          console.log("Image Height:", img.height);
-
-          // Optionally store the dimensions in the state
-          setImageDimensions({
-            width: img.width,
-            height: img.height,
-            depth: 3,
-          });
-          console.log(img);
+            // Optionally store the dimensions in the state
+            setImageDimensions({
+              width: img.width,
+              height: img.height,
+              depth: 3,
+            });
+            console.log(img);
+          };
+          img.src = imageSrc; // Trigger the image load
         };
-        img.src = imageSrc; // Trigger the image load
-      };
-      reader.readAsDataURL(file); // Read the file as a data URL
+        reader.readAsDataURL(file); // Read the file as a data URL
+      }
     }
   };
 
@@ -441,7 +463,7 @@ const FloorPlanImage = ({
   // console.log(roomData);
 
   return (
-    <div>
+    <div style={imageContainer}>
       {imageSrc && (
         <div style={currentRoomContainer}>
           <p style={currentRoom}>
@@ -449,8 +471,14 @@ const FloorPlanImage = ({
           </p>
         </div>
       )}
-
       {!imageSrc && (
+        <FileInputComponent
+          setFileType={setFileType}
+          onChangeMethod={handleImageChange}
+        />
+      )}
+      <p style={errorMessage}>{fileTypeError}</p>
+      {/* {!imageSrc && (
         <input
           type="file"
           accept="image/*"
@@ -468,16 +496,17 @@ const FloorPlanImage = ({
             boxShadow: "0 2px 5px rgba(0, 0, 0, 0.2)", // Subtle shadow for depth
           }}
         />
-      )}
+      )} */}
 
       {imageSrc && (
         <Rectangle
-          onMouseDown={grabImage}
-          onMouseUp={leaveImage}
           style={{
-            cursor: imageCursor,
             width: "100%",
             height: "100%",
+            display: "flex", // Enables Flexbox
+            justifyContent: "center", // Centers content horizontally
+            alignItems: "center", // Centers content vertically
+            position: "relative", // Ensures the canvas layers align properly
           }}
         >
           <TransformWrapper
@@ -487,12 +516,22 @@ const FloorPlanImage = ({
             disabled={ctrlPressed}
           >
             <ImageContainer
+              style={{
+                cursor: imageCursor,
+                display: "flex", // Flexbox for the image container
+                justifyContent: "center", // Center image horizontally
+                alignItems: "center", // Center image vertically
+                position: "relative", // Allows overlay of canvases
+              }}
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
               onContextMenu={handleRightClick} // Right-click event
             >
-              <TransformComponent>
+              <TransformComponent
+                onMouseDown={grabImage}
+                onMouseUp={leaveImage}
+              >
                 <img
                   ref={imageRef}
                   src={imageSrc}
@@ -571,6 +610,7 @@ const FloorPlanImage = ({
               setImageSrc(null);
               setCurrentBoundingBoxes([]);
               setDetectedBoundingBoxes([]);
+              setCurrentFileName(null);
             }}
           >
             Back

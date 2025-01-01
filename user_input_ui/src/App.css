@@ -7,6 +7,7 @@ body {
   display: flex; /* Use flexbox to allow the content to be flexible */
   flex-direction: column; /* Stack the children elements vertically (optional) */
   font-family: "Poppins", sans-serif;
+  background-color: #4d5050;
 }
 
 /* Ensure the main content fills the screen */
@@ -17,14 +18,26 @@ body {
   flex-direction: column; /* Stack content vertically (if needed) */
 }
 
+a {
+  text-decoration: none;
+}
+
 /* Example of full screen content styling */
 .app {
   flex: 1; /* Allow the content area to grow and fill available space */
   display: flex;
   justify-content: center; /* Center the content horizontally */
   align-items: center; /* Center the content vertically */
-  padding: 20px; /* Add some padding */
   box-sizing: border-box; /* Include padding in the element's total size */
+}
+.container {
+  width: 100%;
+  height: 100%;
+  display: "flex";
+  flex-direction: column;
+
+  justify-content: "center";
+  align-items: center;
 }
 /* The modal backdrop */
 .modal {

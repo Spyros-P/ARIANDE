@@ -1,9 +1,17 @@
 import React, { useState } from "react";
 import { CardList } from "../../components/CardList/CardList.jsx";
 import FloorPlanImage from "../../components/FloorPlanImage/FloorPlanImage.jsx";
-import { containerStyle } from "./AnnotateFloorPlan.js";
+import {
+  cardContainer,
+  columnStyleMain,
+  columnStyleSecondary,
+  containerStyle,
+  pageContainer,
+  seeDetails,
+} from "./AnnotateFloorPlan.js";
 import { generateAndDownloadCSV } from "../../utils/downloadCSV.js";
 import { generateAndDownloadXML } from "../../utils/downloadXML.js";
+import Header from "../../components/Header/Header.jsx";
 const AnnotateFloorPlan = () => {
   const [currentBoundingBoxes, setCurrentBoundingBoxes] = useState([]);
   const [detectedBoundingBoxes, setDetectedBoundingBoxes] = useState([
@@ -54,35 +62,58 @@ const AnnotateFloorPlan = () => {
     );
   return (
     // <CardList cards={[1, 2, 3]} title={"Model's Bounding Boxes"}></CardList>
-    <div style={containerStyle}>
-      <FloorPlanImage
-        generateXML={generateXML}
-        generateCSV={generateCSV}
-        setImageDimensions={setImageDimensions}
-        setCurrentFileName={setCurrentFileName}
-        highlightedBox={highlightedBox}
-        currentBoundingBoxes={currentBoundingBoxes}
-        setCurrentBoundingBoxes={setCurrentBoundingBoxes}
-        setDetectedBoundingBoxes={setDetectedBoundingBoxes}
-        detectedBoundingBoxes={detectedBoundingBoxes}
-        imageSrc={
-          "https://wpmedia.roomsketcher.com/content/uploads/2022/01/06145940/What-is-a-floor-plan-with-dimensions.png"
-        } // Replace with your image URL
-      />
-      <CardList
-        onDeleteCard={(x, y, w, h) => onDeleteCard(x, y, w, h, 1)}
-        setCurrentBoundingBoxes={setCurrentBoundingBoxes}
-        setDetectedBoundingBoxes={setDetectedBoundingBoxes}
-        cards={detectedBoundingBoxes}
-        title={"Model's Bounding Boxes"}
-        onSelectDelete={onSelectDelete}
-      ></CardList>
-      <CardList
-        onDeleteCard={(x, y, w, h) => onDeleteCard(x, y, w, h, 2)}
-        cards={currentBoundingBoxes}
-        title={"My Bounding Boxes"}
-        onSelectDelete={onSelectDelete}
-      ></CardList>
+    <div style={pageContainer}>
+      <div style={containerStyle}>
+        <div style={columnStyleMain}>
+          <FloorPlanImage
+            generateXML={generateXML}
+            generateCSV={generateCSV}
+            setImageDimensions={setImageDimensions}
+            setCurrentFileName={setCurrentFileName}
+            highlightedBox={highlightedBox}
+            currentBoundingBoxes={currentBoundingBoxes}
+            setCurrentBoundingBoxes={setCurrentBoundingBoxes}
+            setDetectedBoundingBoxes={setDetectedBoundingBoxes}
+            detectedBoundingBoxes={detectedBoundingBoxes}
+            imageSrc={
+              "https://wpmedia.roomsketcher.com/content/uploads/2022/01/06145940/What-is-a-floor-plan-with-dimensions.png"
+            } // Replace with your image URL
+          />
+        </div>
+        <div style={columnStyleSecondary}>
+          <div style={cardContainer}>
+            {currentFileName && (
+              <>
+                <CardList
+                  onDeleteCard={(x, y, w, h) => onDeleteCard(x, y, w, h, 1)}
+                  setCurrentBoundingBoxes={setCurrentBoundingBoxes}
+                  setDetectedBoundingBoxes={setDetectedBoundingBoxes}
+                  cards={detectedBoundingBoxes}
+                  title={"Model's Bounding Boxes"}
+                  onSelectDelete={onSelectDelete}
+                ></CardList>{" "}
+                <CardList
+                  onDeleteCard={(x, y, w, h) => onDeleteCard(x, y, w, h, 2)}
+                  cards={currentBoundingBoxes}
+                  title={"My Bounding Boxes"}
+                  onSelectDelete={onSelectDelete}
+                ></CardList>
+              </>
+            )}
+            {!currentFileName && (
+              <CardList
+                onDeleteCard={(x, y, w, h) => {}}
+                cards={[]}
+                title={"Upload your Floor Plan"}
+                message={
+                  "The floor plan will then be analyzed by advanced ML models"
+                }
+                onSelectDelete={() => {}}
+              ></CardList>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

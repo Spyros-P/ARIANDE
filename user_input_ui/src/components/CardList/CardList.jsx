@@ -1,7 +1,13 @@
 import React from "react";
 import ObjectCard from "../ItemCard/ItemCard.jsx";
 import { containerStyle, listTitleStyle } from "./CardList.js";
-export const CardList = ({ cards, title, onDeleteCard, onSelectDelete }) => {
+export const CardList = ({
+  message,
+  cards,
+  title,
+  onDeleteCard,
+  onSelectDelete,
+}) => {
   return (
     <div style={containerStyle}>
       <p style={listTitleStyle}>{title}</p>
@@ -17,7 +23,8 @@ export const CardList = ({ cards, title, onDeleteCard, onSelectDelete }) => {
           onSelectDelete={onSelectDelete}
         ></ObjectCard>
       ))}
-      {cards.length === 0 && <p>No bounding boxes available</p>}
+      {cards.length === 0 && !message && <p>No bounding boxes available</p>}
+      {cards.length === 0 && message && <p>{message}</p>}
     </div>
   );
 };

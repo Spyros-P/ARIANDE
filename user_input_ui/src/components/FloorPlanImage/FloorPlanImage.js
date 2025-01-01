@@ -6,7 +6,7 @@ export const Rectangle = styled.div`
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); // Soft shadow
   overflow: hidden; // Prevent image overflow
   position: relative; // Allow the TransformComponent to take full space
-  background-color: #7f9695; // Light background color
+  background-color: #d2d8d8; // Light background color
 `;
 
 export const ImageContainer = styled.div`
@@ -28,4 +28,14 @@ export const buttonsContainer = {
   display: "flex",
   flexDirection: "row",
   gap: 10,
+};
+
+export const imageContainer = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+};
+
+export const errorMessage = {
+  color: "red",
 };

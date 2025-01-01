@@ -4,6 +4,7 @@ import AnnotateImage from "./pages/AnnotateImage.jsx";
 import ImageAnnotator from "./pages/ImageAnnotator.jsx";
 import "./App.css";
 import AnnotateFloorPlan from "./pages/AnnotateFloorPlan/AnnotateFloorPlan.jsx";
+import Header from "./components/Header/Header.jsx";
 
 const router = createBrowserRouter([
   // {
@@ -18,6 +19,7 @@ const router = createBrowserRouter([
     path: "/",
     element: (
       <React.Fragment>
+        <Header />
         <AnnotateFloorPlan />
       </React.Fragment>
     ),
