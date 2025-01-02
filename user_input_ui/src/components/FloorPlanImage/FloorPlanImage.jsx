@@ -158,6 +158,48 @@ const FloorPlanImage = ({
   //   }
   // }, highlightedRoom);
 
+  useEffect(() => {
+    if (imageSrc) {
+      const sendImageToServer = async () => {
+        let base64String = imageSrc;
+  
+        if (imageSrc.startsWith("<img") || imageSrc.startsWith("data:image")) {
+          base64String = imageSrc.split(',')[1]; 
+        }
+  
+        // Now you have the pure base64 string
+        console.log("Base64 String:", base64String);
+  
+        const formData = new FormData();
+        formData.append("image", base64String); // Attach the base64 string to the FormData
+  
+        try {
+          const response = await fetch("http://127.0.0.1:5000/predict", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json", // Setting header for JSON payload
+            },
+            body: JSON.stringify({ image: base64String }), // Send base64 string in the JSON body
+          });
+  
+          if (response.ok) {
+            const data = await response.json();
+            console.log(data.formatted_bboxes)
+            setDetectedBoundingBoxes(data.formatted_bboxes)
+            console.log("Server response:", data);
+          } else {
+            console.error("Error from server:", await response.text());
+          }
+        } catch (error) {
+          console.error("Error during image upload:", error);
+        }
+      };
+  
+      sendImageToServer();
+    }
+  }, [imageSrc]);
+  
+
   const highlightRoom = (highlightedRoom) => {
     if (!ctrlPressed) {
       const canvas = canvasRoomsRef?.current;
