@@ -89,7 +89,8 @@ export function MainPage({ provideYourScreenName, route }) {
         x: floorPlan.width / 2 - x,
         y: floorPlan.height / 2 - y,
         scale: 2,
-        duration: 1,
+        duration: 500, // Increase the duration for smoother transition
+        easing: (t) => t * (2 - t), // Ease out effect for smoother transition
       });
     }
   };

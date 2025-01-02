@@ -32,4 +32,10 @@ export const styles = StyleSheet.create({
     fontSize: 20,
     color: "#ecfafa",
   },
+  textTitle: {
+    marginTop: 20,
+    fontFamily: "SourGummy_Regular",
+    fontSize: 25,
+    color: "#687a78",
+  },
 });

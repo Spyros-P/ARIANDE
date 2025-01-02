@@ -2,7 +2,7 @@ import { useSQLiteContext } from "expo-sqlite";
 import { stringSimilarity } from "string-similarity-js";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import { faArrowLeft } from "@fortawesome/free-solid-svg-icons/faArrowLeft";
-import { Alert, TouchableOpacity, View } from "react-native";
+import { Alert, Text, TouchableOpacity, View } from "react-native";
 import { CardList } from "../../components/CardList/CardList";
 import React, { useEffect, useState } from "react";
 import {
@@ -133,7 +133,7 @@ export function Library({ downloadMorePage, provideYourScreenName }) {
         },
         {
           text: "Yes",
-          onPress: () => navigation.navigate('MainPage', {CardId: CardId}),
+          onPress: () => navigation.navigate("MainPage", { CardId: CardId }),
           style: "destructive",
         },
       ],
@@ -141,7 +141,17 @@ export function Library({ downloadMorePage, provideYourScreenName }) {
         cancelable: true,
       }
     );
-  const storeNewBuilding = async (id, name, image, floorPlan, floorPlanWidth, floorPlanHeight, graph, lat, lon) => {
+  const storeNewBuilding = async (
+    id,
+    name,
+    image,
+    floorPlan,
+    floorPlanWidth,
+    floorPlanHeight,
+    graph,
+    lat,
+    lon
+  ) => {
     const downloadingCardIndex = filteredCards.findIndex(
       (card) => card.id === id
     );
@@ -153,7 +163,18 @@ export function Library({ downloadMorePage, provideYourScreenName }) {
     filteredCards[downloadingCardIndex] = newDownloadingCard;
     setFilteredCards([...filteredCards]);
     try {
-      await downloadNewBuilding(db, id, name, image, floorPlan,floorPlanWidth, floorPlanHeight, graph,lat, lon);
+      await downloadNewBuilding(
+        db,
+        id,
+        name,
+        image,
+        floorPlan,
+        floorPlanWidth,
+        floorPlanHeight,
+        graph,
+        lat,
+        lon
+      );
       setTimeout(() => {
         newDownloadingCard = {
           ...newDownloadingCard,
@@ -164,7 +185,7 @@ export function Library({ downloadMorePage, provideYourScreenName }) {
         setFilteredCards([...filteredCards]);
       }, 200);
     } catch (error) {
-      console.log(error.message)
+      console.log(error.message);
       setTimeout(() => {
         newDownloadingCard = {
           ...newDownloadingCard,
@@ -175,17 +196,25 @@ export function Library({ downloadMorePage, provideYourScreenName }) {
         setFilteredCards([...filteredCards]);
       }, 200);
     }
-
   };
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity
-        style={styles.backIconContainer}
-        onPress={navigation.goBack}
-      >
-        <FontAwesomeIcon icon={faArrowLeft} style={styles.backIcon} />
-      </TouchableOpacity>
+      {!downloadMorePage && (
+        <Txt style={styles.textTitle}>
+          {filteredCards.length > 0
+            ? "Select a building"
+            : "No buildings were found"}
+        </Txt>
+      )}
+      {downloadMorePage && (
+        <TouchableOpacity
+          style={styles.backIconContainer}
+          onPress={navigation.goBack}
+        >
+          <FontAwesomeIcon icon={faArrowLeft} style={styles.backIcon} />
+        </TouchableOpacity>
+      )}
       <BuildingsSearchBar setFilterText={setFilterText} />
       {isLoading && <Txt style={styles.text}>Loading...</Txt>}
       {!errorToFetchData ? (
