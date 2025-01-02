@@ -18,10 +18,11 @@ export const ImageContainer = styled.div`
 export const currentRoom = { color: "rgb(31, 87, 90)" };
 
 export const currentRoomContainer = {
-  width: "100%",
+  width: "25%",
+  borderRadius: 10,
   display: "flex",
   justifyContent: "center",
-  backgroundColor: "rgb(216, 248, 243)",
+  backgroundColor: "rgb(149, 179, 174)",
 };
 
 export const buttonsContainer = {

@@ -1,6 +1,8 @@
-import React, { useState } from "react";
+import React, { useContext, useState } from "react";
 import { CardList } from "../../components/CardList/CardList.jsx";
 import FloorPlanImage from "../../components/FloorPlanImage/FloorPlanImage.jsx";
+import { faArrowLeft, faArrowRight } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   cardContainer,
   columnStyleMain,
@@ -8,15 +10,15 @@ import {
   containerStyle,
   pageContainer,
   seeDetails,
+  showDetailsButton,
 } from "./AnnotateFloorPlan.js";
 import { generateAndDownloadCSV } from "../../utils/downloadCSV.js";
 import { generateAndDownloadXML } from "../../utils/downloadXML.js";
 import Header from "../../components/Header/Header.jsx";
+import { WindowSizeContext } from "../../context/WindowSize/WindowSize.jsx";
 const AnnotateFloorPlan = () => {
   const [currentBoundingBoxes, setCurrentBoundingBoxes] = useState([]);
-  const [detectedBoundingBoxes, setDetectedBoundingBoxes] = useState([
-    { x: 100, y: 100, width: 60, height: 70, label: "door" },
-  ]);
+  const [detectedBoundingBoxes, setDetectedBoundingBoxes] = useState([]);
   const [highlightedBox, setHighlightedBox] = useState(null);
   const [currentFileName, setCurrentFileName] = useState("");
   const [imageDimensions, setImageDimensions] = useState({
@@ -24,21 +26,26 @@ const AnnotateFloorPlan = () => {
     height: 0,
     depth: 3,
   });
+  const [showDetails, setShowDetails] = useState(false);
+  const [isLoadingInference, setIsLoadingInference] = useState(false);
+
+  const { width, height } = useContext(WindowSizeContext);
 
   const onDeleteCard = (x, y, w, h, i) => {
-    i === 1
-      ? setDetectedBoundingBoxes(
-          detectedBoundingBoxes.filter(
-            (box) =>
-              box.x !== x && box.y !== y && box.width !== w && box.height !== h
-          )
+    if (i === 1 || i === 3)
+      setDetectedBoundingBoxes(
+        detectedBoundingBoxes.filter(
+          (box) =>
+            box.x !== x && box.y !== y && box.width !== w && box.height !== h
         )
-      : setCurrentBoundingBoxes(
-          currentBoundingBoxes.filter(
-            (box) =>
-              box.x !== x && box.y !== y && box.width !== w && box.height !== h
-          )
-        );
+      );
+    if (i === 2 || i === 3)
+      setCurrentBoundingBoxes(
+        currentBoundingBoxes.filter(
+          (box) =>
+            box.x !== x && box.y !== y && box.width !== w && box.height !== h
+        )
+      );
   };
 
   const onSelectDelete = (x, y, w, h) => {
@@ -66,11 +73,16 @@ const AnnotateFloorPlan = () => {
       <div style={containerStyle}>
         <div style={columnStyleMain}>
           <FloorPlanImage
+            setIsLoadingInference={setIsLoadingInference}
+            isLoadingInference={isLoadingInference}
+            onDeleteDoor={onDeleteCard}
+            imageDimensions={imageDimensions}
             generateXML={generateXML}
             generateCSV={generateCSV}
             setImageDimensions={setImageDimensions}
             setCurrentFileName={setCurrentFileName}
             highlightedBox={highlightedBox}
+            setHighlightedBox={setHighlightedBox}
             currentBoundingBoxes={currentBoundingBoxes}
             setCurrentBoundingBoxes={setCurrentBoundingBoxes}
             setDetectedBoundingBoxes={setDetectedBoundingBoxes}
@@ -80,39 +92,64 @@ const AnnotateFloorPlan = () => {
             } // Replace with your image URL
           />
         </div>
-        <div style={columnStyleSecondary}>
-          <div style={cardContainer}>
+        {width > 1100 && (
+          <div
+            style={{
+              ...columnStyleSecondary,
+              ...{ flex: showDetails ? 5 : 1 },
+            }}
+          >
             {currentFileName && (
-              <>
+              <button
+                onClick={() => {
+                  setShowDetails(!showDetails);
+                }}
+                className="details-button"
+                style={showDetailsButton}
+              >
+                <FontAwesomeIcon
+                  icon={showDetails ? faArrowRight : faArrowLeft}
+                  size="2x"
+                />
+              </button>
+            )}
+
+            <div style={cardContainer}>
+              {currentFileName && showDetails && !isLoadingInference && (
+                <>
+                  {" "}
+                  <CardList
+                    size="medium"
+                    onDeleteCard={(x, y, w, h) => onDeleteCard(x, y, w, h, 1)}
+                    setCurrentBoundingBoxes={setCurrentBoundingBoxes}
+                    setDetectedBoundingBoxes={setDetectedBoundingBoxes}
+                    cards={detectedBoundingBoxes}
+                    title={"Model's Bounding Boxes"}
+                    onSelectDelete={onSelectDelete}
+                  ></CardList>
+                  <CardList
+                    size="medium"
+                    onDeleteCard={(x, y, w, h) => onDeleteCard(x, y, w, h, 2)}
+                    cards={currentBoundingBoxes}
+                    title={"My Bounding Boxes"}
+                    onSelectDelete={onSelectDelete}
+                  ></CardList>
+                </>
+              )}
+              {!currentFileName && (
                 <CardList
-                  onDeleteCard={(x, y, w, h) => onDeleteCard(x, y, w, h, 1)}
-                  setCurrentBoundingBoxes={setCurrentBoundingBoxes}
-                  setDetectedBoundingBoxes={setDetectedBoundingBoxes}
-                  cards={detectedBoundingBoxes}
-                  title={"Model's Bounding Boxes"}
-                  onSelectDelete={onSelectDelete}
-                ></CardList>{" "}
-                <CardList
-                  onDeleteCard={(x, y, w, h) => onDeleteCard(x, y, w, h, 2)}
-                  cards={currentBoundingBoxes}
-                  title={"My Bounding Boxes"}
-                  onSelectDelete={onSelectDelete}
+                  onDeleteCard={(x, y, w, h) => {}}
+                  cards={[]}
+                  title={"Upload your Floor Plan"}
+                  message={
+                    "The floor plan will then be analyzed by advanced ML models"
+                  }
+                  onSelectDelete={() => {}}
                 ></CardList>
-              </>
-            )}
-            {!currentFileName && (
-              <CardList
-                onDeleteCard={(x, y, w, h) => {}}
-                cards={[]}
-                title={"Upload your Floor Plan"}
-                message={
-                  "The floor plan will then be analyzed by advanced ML models"
-                }
-                onSelectDelete={() => {}}
-              ></CardList>
-            )}
+              )}
+            </div>
           </div>
-        </div>
+        )}{" "}
       </div>
     </div>
   );

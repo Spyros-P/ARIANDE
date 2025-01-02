@@ -4,7 +4,6 @@ export const containerStyle = {
   alignItems: "center", // Center cards horizontally
   gap: "12px", // Spacing between cards
   padding: "20px",
-  maxHeight: "600px", // Restrict height to make it scrollable
   overflowY: "auto", // Enable vertical scrolling
   backgroundColor: "#b7cecc", // Light green background
   borderRadius: "12px", // Rounded corners for the container

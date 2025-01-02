@@ -6,7 +6,7 @@ export const containerStyle = {
 };
 
 export const columnStyleMain = {
-  flex: 3,
+  flex: 50,
   padding: "10px",
   height: "100%",
   display: "flex",
@@ -15,13 +15,12 @@ export const columnStyleMain = {
 };
 
 export const columnStyleSecondary = {
-  flex: 1,
-  padding: "20px",
+  padding: "0px 20px 0px 20px",
   backgroundColor: "rgb(94, 104, 102)",
   height: "100%",
   display: "flex",
   flexDirection: "column",
-  justifyContent: "center",
+  justifyContent: "start",
 };
 
 export const pageContainer = {
@@ -31,7 +30,17 @@ export const pageContainer = {
 };
 
 export const cardContainer = {
+  flex: 15,
   display: "flex",
   flexDirection: "column",
+  justifyContent: "center",
   gap: 20,
+  marginBottom: 100,
+};
+
+export const showDetailsButton = {
+  flex: 1,
+  borderRadius: "50%",
+  height: "70px",
+  width: "70px",
 };

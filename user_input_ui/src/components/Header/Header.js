@@ -2,11 +2,9 @@ export const header = {
   display: "flex",
   flexDirection: "row",
   alignItems: "center",
-  height: 60,
   backgroundColor: "#515858",
-  position: "fixed",
+  flex: 1,
   width: "100%",
-  top: 0,
 };
 
 export const headerSection = {

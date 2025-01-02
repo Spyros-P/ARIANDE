@@ -7,9 +7,15 @@ export const CardList = ({
   title,
   onDeleteCard,
   onSelectDelete,
+  size,
 }) => {
   return (
-    <div style={containerStyle}>
+    <div
+      style={{
+        ...containerStyle,
+        ...{ height: !size || size === "small" ? "fit-content" : "300px" },
+      }}
+    >
       <p style={listTitleStyle}>{title}</p>
       {cards.map((card, index) => (
         <ObjectCard

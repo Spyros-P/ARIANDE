@@ -5,6 +5,7 @@ import ImageAnnotator from "./pages/ImageAnnotator.jsx";
 import "./App.css";
 import AnnotateFloorPlan from "./pages/AnnotateFloorPlan/AnnotateFloorPlan.jsx";
 import Header from "./components/Header/Header.jsx";
+import { WindowSizeProvider } from "./context/WindowSize/WindowSize.jsx";
 
 const router = createBrowserRouter([
   // {
@@ -19,7 +20,6 @@ const router = createBrowserRouter([
     path: "/",
     element: (
       <React.Fragment>
-        <Header />
         <AnnotateFloorPlan />
       </React.Fragment>
     ),
@@ -37,11 +37,14 @@ const router = createBrowserRouter([
 class App extends Component {
   render() {
     return (
-      <div className="app">
-        <div className="container">
-          <RouterProvider router={router} />
+      <WindowSizeProvider>
+        <div className="app">
+          <Header />
+          <div className="container">
+            <RouterProvider router={router} />
+          </div>
         </div>
-      </div>
+      </WindowSizeProvider>
     );
   }
 }

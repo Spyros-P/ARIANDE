@@ -24,18 +24,18 @@ a {
 
 /* Example of full screen content styling */
 .app {
-  flex: 1; /* Allow the content area to grow and fill available space */
+  flex: 1;
   display: flex;
   justify-content: center; /* Center the content horizontally */
   align-items: center; /* Center the content vertically */
-  box-sizing: border-box; /* Include padding in the element's total size */
+  flex-direction: column;
 }
 .container {
+  flex: 13;
   width: 100%;
   height: 100%;
   display: "flex";
   flex-direction: column;
-
   justify-content: "center";
   align-items: center;
 }
@@ -64,6 +64,17 @@ a {
   max-width: 90%;
   text-align: center;
   animation: fadeIn 0.3s ease-out;
+}
+
+button.details-button:hover {
+  background-color: rgb(94, 104, 102);
+}
+button.details-button {
+  background-color: rgb(94, 104, 102);
+}
+
+button.door-deleted {
+  background: none;
 }
 
 /* Label styles */

@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
+import { Audio } from "react-loader-spinner";
+
 import {
   ImageContainer,
   Rectangle,
@@ -12,6 +14,8 @@ import {
 } from "./FloorPlanImage";
 import { drawLightPolygon } from "../../utils/drawPolygon";
 import FileInputComponent from "../FileInput/FileInput.jsx";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faTrash } from "@fortawesome/free-solid-svg-icons";
 
 const validFileTypes = ["png", "jpeg", "jpg"];
 
@@ -28,16 +32,31 @@ const isPointInPolygon = (point, polygon) => {
   return isInside;
 };
 
+const isPointInBox = (point, box) => {
+  let [x, y] = point;
+  return (
+    x >= box.x &&
+    y >= box.y &&
+    x <= box.x + box.width &&
+    y <= box.y + box.height
+  );
+};
+
 const FloorPlanImage = ({
   generateXML,
   generateCSV,
   setImageDimensions,
+  imageDimensions,
   setCurrentFileName,
   currentBoundingBoxes,
   setCurrentBoundingBoxes,
   setDetectedBoundingBoxes,
   detectedBoundingBoxes,
   highlightedBox,
+  setHighlightedBox,
+  onDeleteDoor,
+  isLoadingInference,
+  setIsLoadingInference,
 }) => {
   const [isDrawing, setIsDrawing] = useState(false); // Track if the user is currently drawing a box
   const [startPoint, setStartPoint] = useState({ x: 0, y: 0 }); // Starting coordinates of the box
@@ -53,6 +72,8 @@ const FloorPlanImage = ({
   const [imageSrc, setImageSrc] = useState(null); // State to store the uploaded image
   const [fileType, setFileType] = useState(null);
   const [fileTypeError, setFileTypeError] = useState("");
+  const [cursor, setCursor] = useState({ x: 0, y: 0 });
+  const [doorDeleted, setDoorDeleted] = useState(false);
   // const [currentCsvRecords, setCurrentCsvRecords] = useState([]);
   // const [currentCsvRecord, setCurrentCsvRecord] = useState([]);
   const [highlightedRoom, setHighlightedRoom] = useState(null); // Room to be highlighted
@@ -148,57 +169,107 @@ const FloorPlanImage = ({
       ],
     },
   ]);
+  const transformWrapperRef = useRef(null);
 
-  // useEffect(() => {
-  //   const canvas = canvasRef?.current;
-  //   const ctx = canvas?.getContext("2d");
-  //   if (highlightedRoom) {
-  //     console.log(highlightedRoom?.label);
-  //     drawLightPolygon(canvas, ctx, highlightedRoom.coords);
-  //   }
-  // }, highlightedRoom);
+  // Function to place the rubbish bin at specific position
+  const placeRubbishBin = (x, y) => {
+    return (
+      <a
+        onClick={() => {
+          onDeleteDoor(
+            highlightedBox.x,
+            highlightedBox.y,
+            highlightedBox.width,
+            highlightedBox.weight,
+            3
+          );
+          setDoorDeleted(true);
+        }}
+      >
+        <FontAwesomeIcon
+          icon={!doorDeleted ? faTrash : null}
+          size="2x"
+          style={{
+            cursor: "pointer",
+            position: "fixed",
+            color: "red",
+            top: y,
+            left: x,
+            zIndex: 1,
+            transform: "scale(0.5)",
+          }}
+        />
+      </a>
+    );
+  };
+
+  const zoomToBox = (box) => {
+    const { x, y, width, height } = box;
+
+    if (transformWrapperRef.current) {
+      const { setTransform } = transformWrapperRef.current;
+
+      // Calculate the zoom level based on the box size
+      const targetZoom = imageDimensions.width / 300;
+
+      // Calculate the center of the bounding box
+      const centerX = x + width / 2;
+      const centerY = y + height / 2;
+
+      // Adjust the view to center the box and apply the zoom level
+      setTransform(
+        -centerX * targetZoom + imageDimensions.width / 2, // offset by half of the window width
+        -centerY * targetZoom + imageDimensions.height / 2, // offset by half of the window height
+        targetZoom,
+        1000, // Duration of the animation (600ms)
+        "easeOutQuad" // Easing function
+      );
+    }
+  };
 
   useEffect(() => {
     if (imageSrc) {
+      setIsLoadingInference(true);
       const sendImageToServer = async () => {
         let base64String = imageSrc;
-  
+
         if (imageSrc.startsWith("<img") || imageSrc.startsWith("data:image")) {
-          base64String = imageSrc.split(',')[1]; 
+          base64String = imageSrc.split(",")[1];
         }
-  
+
         // Now you have the pure base64 string
         console.log("Base64 String:", base64String);
-  
+
         const formData = new FormData();
         formData.append("image", base64String); // Attach the base64 string to the FormData
-  
+
         try {
-          const response = await fetch("http://127.0.0.1:5000/predict", {
+          const response = await fetch("http://127.0.0.1:5000/predict_doors", {
             method: "POST",
             headers: {
               "Content-Type": "application/json", // Setting header for JSON payload
             },
             body: JSON.stringify({ image: base64String }), // Send base64 string in the JSON body
           });
-  
+
           if (response.ok) {
             const data = await response.json();
-            console.log(data.formatted_bboxes)
-            setDetectedBoundingBoxes(data.formatted_bboxes)
+            console.log(data.formatted_bboxes);
+            setDetectedBoundingBoxes(data.formatted_bboxes);
             console.log("Server response:", data);
           } else {
             console.error("Error from server:", await response.text());
           }
+          setIsLoadingInference(false);
         } catch (error) {
           console.error("Error during image upload:", error);
+          setIsLoadingInference(false);
         }
       };
-  
+
       sendImageToServer();
     }
   }, [imageSrc]);
-  
 
   const highlightRoom = (highlightedRoom) => {
     if (!ctrlPressed) {
@@ -311,7 +382,7 @@ const FloorPlanImage = ({
       detectedBoundingBoxes.concat(currentBoundingBoxes).forEach((box) => {
         ctx.beginPath();
         ctx.rect(box.x, box.y, box.width, box.height);
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 3;
         ctx.strokeStyle = "red";
 
         if (
@@ -321,10 +392,12 @@ const FloorPlanImage = ({
           highlightedBox.width === box.width &&
           highlightedBox.height === box.height
         ) {
+          if (!isPointInBox([cursor.x, cursor.y], highlightedBox))
+            zoomToBox(highlightedBox);
           ctx.strokeStyle = "purple"; // Highlight the box with a blue color
           ctx.lineWidth = 4; // Make the border thicker
         } else {
-          ctx.strokeStyle = "red"; // Default color for other boxes
+          ctx.strokeStyle = "rgb(85, 190, 162)"; // Default color for other boxes
         }
         ctx.stroke();
 
@@ -381,6 +454,15 @@ const FloorPlanImage = ({
   // Mouse move event to update the current bounding box while dragging
   const handleMouseMove = (e) => {
     const { offsetX, offsetY } = e.nativeEvent;
+    setCursor({ x: offsetX, y: offsetY });
+    // setHighlightedBox(null);
+    currentBoundingBoxes.concat(detectedBoundingBoxes).forEach((box) => {
+      if (isPointInBox([offsetX, offsetY], box)) {
+        setHighlightedBox(box);
+        setDoorDeleted(false);
+      }
+    });
+
     const width = offsetX - startPoint.x;
     const height = offsetY - startPoint.y;
     setTimeout(() => {
@@ -506,7 +588,7 @@ const FloorPlanImage = ({
 
   return (
     <div style={imageContainer}>
-      {imageSrc && (
+      {imageSrc && !isLoadingInference && (
         <div style={currentRoomContainer}>
           <p style={currentRoom}>
             Current Room: {highlightedRoom ? highlightedRoom.label : "-"}
@@ -520,27 +602,28 @@ const FloorPlanImage = ({
         />
       )}
       <p style={errorMessage}>{fileTypeError}</p>
-      {/* {!imageSrc && (
-        <input
-          type="file"
-          accept="image/*"
-          onChange={handleImageChange}
+      {isLoadingInference && (
+        <div
           style={{
-            padding: "10px 20px", // Padding for a larger clickable area
-            fontSize: "16px", // Easy-to-read font size
-            borderRadius: "8px", // Smooth rounded corners
-            border: "2px solid #1f575a", // Stylish border with your color
-            backgroundColor: "#f4f4f4", // Light background for contrast
-            color: "#1f575a", // Match text color with the border
-            cursor: "pointer", // Pointer cursor for better affordance
-            transition: "all 0.3s ease", // Smooth hover effects
-            outline: "none", // Removes the default focus outline
-            boxShadow: "0 2px 5px rgba(0, 0, 0, 0.2)", // Subtle shadow for depth
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "start",
+            gap: 10,
           }}
-        />
-      )} */}
-
-      {imageSrc && (
+        >
+          <Audio
+            height="80"
+            width="80"
+            radius="9"
+            color="white"
+            ariaLabel="loading"
+            wrapperStyle
+            wrapperClass
+          />
+          <p style={{ color: "white", fontSize: 30 }}>Loading...</p>
+        </div>
+      )}
+      {imageSrc && !isLoadingInference && (
         <Rectangle
           style={{
             width: "100%",
@@ -552,6 +635,7 @@ const FloorPlanImage = ({
           }}
         >
           <TransformWrapper
+            ref={transformWrapperRef}
             initialScale={1.2}
             initialPositionX={0}
             initialPositionY={0}
@@ -584,6 +668,11 @@ const FloorPlanImage = ({
                     objectFit: "contain",
                   }}
                 />
+                {highlightedBox &&
+                  placeRubbishBin(
+                    highlightedBox?.x + highlightedBox.width - 3,
+                    highlightedBox?.y - 10
+                  )}
                 <canvas
                   ref={canvasRef}
                   style={{
@@ -643,7 +732,7 @@ const FloorPlanImage = ({
           </div>
         </div>
       )}
-      {imageSrc && (
+      {imageSrc && !isLoadingInference && (
         <div style={buttonsContainer}>
           {" "}
           <button
