@@ -28,6 +28,6 @@ def send_image_to_endpoint(image_path, endpoint_url):
 
 # Example usage
 if __name__ == "__main__":
-    IMAGE_PATH = "C:/Users/thano/Indoor-Navigation/software/web interface/assets/images/hospital_1_upscaled_sharpened.jpg"  # Replace with the path to your image
+    IMAGE_PATH = "C:/Users/thano/Indoor-Navigation/software/web interface/assets/images/floor_plan_1.jpg"  # Replace with the path to your image
     ENDPOINT_URL = "http://127.0.0.1:5000/predict_rooms"  # Replace with your endpoint URL
     send_image_to_endpoint(IMAGE_PATH, ENDPOINT_URL)
