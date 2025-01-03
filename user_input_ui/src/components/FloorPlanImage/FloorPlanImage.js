@@ -2,7 +2,11 @@ import styled from "styled-components";
 
 // Styled Component for the Rectangle
 export const Rectangle = styled.div`
-  border-radius: 10px; // Rounded corners
+  display: "flex", // Enables Flexbox
+  justifyContent: "center", // Centers content horizontally
+  alignItems: "center", // Centers content vertically
+  position: "relative", // Ensures the canvas layers align properly
+  border-radius: 20px; // Rounded corners
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); // Soft shadow
   overflow: hidden; // Prevent image overflow
   position: relative; // Allow the TransformComponent to take full space
@@ -18,7 +22,6 @@ export const ImageContainer = styled.div`
 export const currentRoom = { color: "rgb(31, 87, 90)" };
 
 export const currentRoomContainer = {
-  width: "25%",
   borderRadius: 10,
   display: "flex",
   justifyContent: "center",

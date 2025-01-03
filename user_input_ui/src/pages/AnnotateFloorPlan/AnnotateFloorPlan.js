@@ -43,4 +43,5 @@ export const showDetailsButton = {
   borderRadius: "50%",
   height: "70px",
   width: "70px",
+  transform: "scale(1.2)",
 };

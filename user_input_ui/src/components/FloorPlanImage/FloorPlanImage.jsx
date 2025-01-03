@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useContext } from "react";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { Audio } from "react-loader-spinner";
 
@@ -16,6 +16,7 @@ import { drawLightPolygon } from "../../utils/drawPolygon";
 import FileInputComponent from "../FileInput/FileInput.jsx";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrash } from "@fortawesome/free-solid-svg-icons";
+import { WindowSizeContext } from "../../context/WindowSize/WindowSize.jsx";
 
 const validFileTypes = ["png", "jpeg", "jpg"];
 
@@ -57,6 +58,7 @@ const FloorPlanImage = ({
   onDeleteDoor,
   isLoadingInference,
   setIsLoadingInference,
+  setShowDetails,
 }) => {
   const [isDrawing, setIsDrawing] = useState(false); // Track if the user is currently drawing a box
   const [startPoint, setStartPoint] = useState({ x: 0, y: 0 }); // Starting coordinates of the box
@@ -77,6 +79,7 @@ const FloorPlanImage = ({
   // const [currentCsvRecords, setCurrentCsvRecords] = useState([]);
   // const [currentCsvRecord, setCurrentCsvRecord] = useState([]);
   const [highlightedRoom, setHighlightedRoom] = useState(null); // Room to be highlighted
+  const { width: windowWidth, height } = useContext(WindowSizeContext);
 
   const [roomData, setRoomData] = useState([
     {
@@ -210,15 +213,21 @@ const FloorPlanImage = ({
       const { setTransform } = transformWrapperRef.current;
 
       // Calculate the zoom level based on the box size
-      const targetZoom = imageDimensions.width / 300;
+      const targetZoom = imageDimensions.width / 350;
 
       // Calculate the center of the bounding box
       const centerX = x + width / 2;
       const centerY = y + height / 2;
 
+      let offX = 0;
+      if (imageDimensions.width > Math.max(500, 0.35 * windowWidth))
+        offX =
+          Math.min(imageDimensions.width, Math.max(500, 0.35 * windowWidth)) /
+          targetZoom;
+
       // Adjust the view to center the box and apply the zoom level
       setTransform(
-        -centerX * targetZoom + imageDimensions.width / 2, // offset by half of the window width
+        -centerX * targetZoom + imageDimensions.width / 2 - offX, // offset by half of the window width
         -centerY * targetZoom + imageDimensions.height / 2, // offset by half of the window height
         targetZoom,
         1000, // Duration of the animation (600ms)
@@ -584,12 +593,17 @@ const FloorPlanImage = ({
     }
   }, [imageIsGrabbed, ctrlPressed]);
 
-  // console.log(roomData);
+  console.log(Math.max(500, 0.35 * windowWidth));
 
   return (
     <div style={imageContainer}>
       {imageSrc && !isLoadingInference && (
-        <div style={currentRoomContainer}>
+        <div
+          style={{
+            ...currentRoomContainer,
+            ...{ width: `${Math.min(500, imageDimensions.width)}px` },
+          }}
+        >
           <p style={currentRoom}>
             Current Room: {highlightedRoom ? highlightedRoom.label : "-"}
           </p>
@@ -623,15 +637,19 @@ const FloorPlanImage = ({
           <p style={{ color: "white", fontSize: 30 }}>Loading...</p>
         </div>
       )}
+
       {imageSrc && !isLoadingInference && (
         <Rectangle
           style={{
-            width: "100%",
-            height: "100%",
-            display: "flex", // Enables Flexbox
-            justifyContent: "center", // Centers content horizontally
-            alignItems: "center", // Centers content vertically
-            position: "relative", // Ensures the canvas layers align properly
+            width: `${Math.min(
+              imageDimensions.width,
+              Math.max(500, 0.35 * windowWidth)
+            )}px`,
+            height: `${Math.min(
+              imageDimensions.width,
+              Math.max(500, 0.35 * windowWidth)
+            )}px`,
+            borderRadius: 20,
           }}
         >
           <TransformWrapper
@@ -640,6 +658,7 @@ const FloorPlanImage = ({
             initialPositionX={0}
             initialPositionY={0}
             disabled={ctrlPressed}
+            limitToBounds={false}
           >
             <ImageContainer
               style={{
@@ -663,8 +682,8 @@ const FloorPlanImage = ({
                   src={imageSrc}
                   alt="Uploaded Floor Plan"
                   style={{
-                    width: "100%",
-                    height: "auto",
+                    maxHeight: "none",
+                    maxWidth: "none",
                     objectFit: "contain",
                   }}
                 />
@@ -742,6 +761,7 @@ const FloorPlanImage = ({
               setCurrentBoundingBoxes([]);
               setDetectedBoundingBoxes([]);
               setCurrentFileName(null);
+              setShowDetails(false);
             }}
           >
             Back

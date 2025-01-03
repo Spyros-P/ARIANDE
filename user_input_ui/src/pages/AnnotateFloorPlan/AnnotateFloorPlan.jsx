@@ -73,6 +73,7 @@ const AnnotateFloorPlan = () => {
       <div style={containerStyle}>
         <div style={columnStyleMain}>
           <FloorPlanImage
+            setShowDetails={setShowDetails}
             setIsLoadingInference={setIsLoadingInference}
             isLoadingInference={isLoadingInference}
             onDeleteDoor={onDeleteCard}
@@ -92,7 +93,7 @@ const AnnotateFloorPlan = () => {
             } // Replace with your image URL
           />
         </div>
-        {width > 1100 && (
+        {width > 900 && (
           <div
             style={{
               ...columnStyleSecondary,
@@ -109,7 +110,6 @@ const AnnotateFloorPlan = () => {
               >
                 <FontAwesomeIcon
                   icon={showDetails ? faArrowRight : faArrowLeft}
-                  size="2x"
                 />
               </button>
             )}

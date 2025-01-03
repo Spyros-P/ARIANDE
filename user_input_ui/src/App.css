@@ -67,10 +67,10 @@ a {
 }
 
 button.details-button:hover {
-  background-color: rgb(94, 104, 102);
+  background: none;
 }
 button.details-button {
-  background-color: rgb(94, 104, 102);
+  background: none;
 }
 
 button.door-deleted {
@@ -143,7 +143,7 @@ button:hover {
 
 /* Cancel button styles */
 button.cancel {
-  background-color: #8b251e;
+  background-color: #a74b45;
 }
 
 button.cancel:hover {
