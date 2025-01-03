@@ -1,7 +1,13 @@
 import React from "react";
 import { FileInput, Label } from "flowbite-react";
 
-export function FileInputComponent({ onChangeMethod, setFileType }) {
+export function FileInputComponent({
+  onChangeMethod,
+  setFileType,
+  customMessage,
+  ...styleArgs
+}) {
+  console.log(styleArgs);
   const handleDragOver = (e) => {
     e.preventDefault();
     e.currentTarget.style.backgroundColor = "#e5e7eb";
@@ -46,16 +52,17 @@ export function FileInputComponent({ onChangeMethod, setFileType }) {
           borderColor: "#d1d5db",
           backgroundColor: "#f9fafb",
           transition: "background-color 0.3s, border-color 0.3s",
+          ...styleArgs.style,
         }}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundColor = "#f3f4f6";
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundColor = "#f9fafb";
-        }}
+        // onMouseEnter={(e) => {
+        //   e.currentTarget.style.backgroundColor = "#f3f4f6";
+        // }}
+        // onMouseLeave={(e) => {
+        //   e.currentTarget.style.backgroundColor = "#f9fafb";
+        // }}
       >
         <div
           style={{
@@ -94,8 +101,10 @@ export function FileInputComponent({ onChangeMethod, setFileType }) {
               color: "#6b7280",
             }}
           >
-            <span style={{ fontWeight: "600" }}>Click to upload</span> or drag
-            and drop
+            <span style={{ fontWeight: "600" }}>
+              {customMessage || "Click to upload"}
+            </span>{" "}
+            or drag and drop
           </p>
           <p style={{ fontSize: "0.75rem", color: "#6b7280" }}>
             PNG, JPG, or JPEG

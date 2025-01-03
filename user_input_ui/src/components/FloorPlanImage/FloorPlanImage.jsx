@@ -329,6 +329,8 @@ const FloorPlanImage = ({
       fileType !== null
     ) {
       setFileTypeError(`${fileType} is not supported!`);
+      setImageSrc(null);
+      setCurrentFileName(null);
     } else {
       setFileTypeError("");
     }
@@ -611,6 +613,7 @@ const FloorPlanImage = ({
       )}
       {!imageSrc && (
         <FileInputComponent
+          customMessage={"Click to upload your floor plan"}
           setFileType={setFileType}
           onChangeMethod={handleImageChange}
         />

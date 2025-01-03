@@ -10,8 +10,10 @@ export const columnStyleMain = {
   padding: "10px",
   height: "100%",
   display: "flex",
-  flexDirection: "column",
+  flexDirection: "row",
   justifyContent: "center",
+  alignItems: "center",
+  gap: "30px",
 };
 
 export const columnStyleSecondary = {
@@ -21,6 +23,7 @@ export const columnStyleSecondary = {
   display: "flex",
   flexDirection: "column",
   justifyContent: "start",
+  alignItems: "end",
 };
 
 export const pageContainer = {
@@ -44,4 +47,25 @@ export const showDetailsButton = {
   height: "70px",
   width: "70px",
   transform: "scale(1.2)",
+};
+
+export const submitButton = {
+  padding: "12px 24px",
+  backgroundColor: "rgb(83, 172, 152)",
+  color: "white",
+  fontSize: "16px",
+  fontWeight: "bold",
+  borderRadius: "5px",
+  border: "none",
+  transition: "background-color 0.3s ease",
+};
+
+export const nameInput = {
+  padding: "10px",
+  borderRadius: "5px",
+  border: "1px solid #ccc",
+  fontSize: "16px",
+  color: "#333",
+  width: "250px",
+  outline: "none",
 };

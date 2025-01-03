@@ -66,6 +66,14 @@ a {
   animation: fadeIn 0.3s ease-out;
 }
 
+button.download-image {
+  background: none;
+}
+
+button.download-image:hover {
+  background: none;
+}
+
 button.details-button:hover {
   background: none;
 }
@@ -75,6 +83,16 @@ button.details-button {
 
 button.door-deleted {
   background: none;
+}
+
+button.submit-btn:disabled {
+  background-color: rgb(173, 164, 166);
+  cursor: not-allowed;
+}
+
+button.submit-btn:disabled:hover {
+  cursor: not-allowed;
+  background-color: rgb(173, 164, 166);
 }
 
 /* Label styles */
@@ -93,17 +111,13 @@ input[type="text"] {
   padding: 8px;
   margin-top: 8px;
   margin-bottom: 16px;
-  border: 1px solid #ccc;
   border-radius: 4px;
   font-size: 14px;
   color: #333;
-  background-color: #f9f9f9;
-  transition: border-color 0.3s ease;
 }
 
 select:focus,
 input[type="text"]:focus {
-  border-color: #6c8fbf;
   outline: none;
 }
 
