@@ -5,18 +5,23 @@ import numpy as np
 import os
 import base64
 import subprocess
+import logging
+import shutil
 
 from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app)  
 
+# Global variable for the base path
+BASE_PATH = "C:/Users/thano"
+
 DEVICE = 'cpu'
 MODEL_ARCH = "yolo_nas_m"
 classes = ['bathroom', 'bathtub', 'door', 'en_suite', 'kitchen', 'window']
 
-checkpoint_path = "/home/dimitris/projects/hipeac/Indoor-Navigation/software/web interface/models/average_model.pth"
-
+# Updated paths using BASE_PATH
+checkpoint_path = os.path.join(BASE_PATH, "Indoor-Navigation/software/web interface/models/average_model.pth")
 
 best_model = models.get(
     MODEL_ARCH,
@@ -40,11 +45,11 @@ def process_predictions(model_result):
     
     formatted_bboxes = [
         {
-            "x": bbox[0],  # x coordinate
-            "y": bbox[1],  # y coordinate
-            "width": bbox[2] - bbox[0],  # width (difference between x2 and x1)
-            "height": bbox[3] - bbox[1],  # height (difference between y2 and y1)
-            "label": label_names.get(label, "unknown")  # Get the label name from the dictionary
+            "x": bbox[0],  
+            "y": bbox[1],  
+            "width": bbox[2] - bbox[0],  
+            "height": bbox[3] - bbox[1],  
+            "label": label_names.get(label, "unknown") 
         }
         for bbox, label in zip(filtered_bboxes, filtered_labels)
     ]
@@ -58,37 +63,46 @@ def process_predictions(model_result):
     
     return jsonify(response)
 
+def convert_txt_to_json(txt_file_path, image_width, image_height):
+    data = []
+    app.logger.info(f"Image dimensions: width={image_width}, height={image_height}")
+    with open(txt_file_path, "r") as file:
+        for line in file:
+            parts = line.strip().split()
+            if len(parts) > 1:
+                class_id = int(parts[0])
+                points = list(map(float, parts[1:]))
+                point_objects = []
+                for i in range(0, len(points), 2):
+                    x = points[i] #* image_width
+                    y = points[i + 1] #* image_height
+                    point_objects.append({"x": x, "y": y})
+                data.append({"points": point_objects, "label": ""})
+    return jsonify(data)
+
 @app.route('/predict_doors', methods=['POST'])
 def predict_doors():
     try:
-        # Get the JSON data from the request body
         data = request.get_json()
 
         if 'image' not in data:
             return jsonify({"error": "No image data provided"}), 400
         
-        # Extract base64 string from the request
         base64_string = data['image']
         
-        # Check if the string contains metadata (e.g., 'data:image/jpeg;base64,...')
         if base64_string.startswith('data:image'):
-            # Remove the data:image/*;base64, part from the string
             base64_string = base64_string.split(',')[1]
 
-        # Decode the base64 string to bytes
         image_data = base64.b64decode(base64_string)
 
-        # Convert the image data to a numpy array and decode using OpenCV
         image_array = np.frombuffer(image_data, dtype=np.uint8)
         image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
 
         if image is None:
             return jsonify({"error": "Invalid image format"}), 400
 
-        # Predict using the model (you can call your model's prediction method here)
         model_result = best_model.predict(image, conf=0.25)
 
-        # Process and return predictions
         return process_predictions(model_result)
 
     except Exception as e:
@@ -97,70 +111,72 @@ def predict_doors():
 @app.route('/predict_rooms', methods=['POST'])
 def predict_rooms():
     try:
-        # Define paths
-        model_path = "C:/Users/thano/Indoor-Navigation/software/web interface/models/best.pt"
+        model_path = os.path.join(BASE_PATH, "Indoor-Navigation/software/web interface/models/best.pt")
         
-        # Get the JSON data from the request body
         data = request.get_json()
 
         if 'image' not in data:
             return jsonify({"error": "No image data provided"}), 400
         
-        # Extract base64 string from the request
         base64_string = data['image']
         
-        # Check if the string contains metadata (e.g., 'data:image/jpeg;base64,...')
         if base64_string.startswith('data:image'):
-            # Remove the data:image/*;base64, part from the string
             base64_string = base64_string.split(',')[1]
 
-        # Decode the base64 string to bytes
         image_data = base64.b64decode(base64_string)
 
-        # Convert the image data to a numpy array and decode using OpenCV
         image_array = np.frombuffer(image_data, dtype=np.uint8)
         image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
 
-        temp_path = "C:/Users/thano/Indoor-Navigation/software/web interface/assets/temp_images"
-        temp_image_path = os.path.join(temp_path, 'temp_image.jpg')
+        height, width, _ = image.shape
+
+        temp_path = os.path.join(BASE_PATH, "Indoor-Navigation/software/web interface/assets/temp_images")
+        temp_image_path = os.path.join(temp_path, 'temp_image_rooms.jpg')
+    
         success = cv2.imwrite(temp_image_path, image)
 
         if image is None:
             return jsonify({"error": "Invalid image format"}), 400
         
-        # YOLO command
         yolo_command = [
             "yolo",
             "task=segment",
             "mode=predict",
             f"model={model_path}",
             "conf=0.5",
-            f"source={os.path.join(temp_path, 'temp_image.jpg')}",
+            f"source={os.path.join(temp_path, 'temp_image_rooms.jpg')}",
             "save=True",
-            "save_txt=True",  # This saves the txt files
-            f"project={temp_path}",  # Specify the directory to save the files
+            "save_txt=True",  
+            f"project={temp_path}",  
             "show_labels=False",
             "show_conf=False",
             "show_boxes=False"
         ]
+
+        predict_path = os.path.join(temp_path, "predict")
+        try:
+            shutil.rmtree(predict_path)
+            app.logger.info(f"Folder '{predict_path}' deleted successfully.")
+        except FileNotFoundError:
+            app.logger.info(f"Folder '{predict_path}' already deleted.")
         
-        # Execute YOLO command
-        result = subprocess.run(yolo_command, capture_output=True, text=True)
+        result = subprocess.run(yolo_command, capture_output=True, text=True, encoding='utf-8')
         
-        # Check for errors
         if result.returncode != 0:
             return jsonify({"error": "YOLO command failed", "details": result.stderr}), 500
         
-        txt_path = os.path.join(temp_path, 'predict/labels')
-        # Get the .txt file (assuming single file output for simplicity)
+        txt_path = os.path.join(predict_path, 'labels')
+        
         txt_files = [f for f in os.listdir(txt_path) if f.endswith('.txt')]
         if not txt_files:
             return jsonify({"error": "No .txt file generated"}), 500
-        
-        txt_file_path = os.path.join(temp_path, txt_files[0])
-        
-        # Serve the .txt file
-        return jsonify({"ok" : "ok"}) #send_from_directory(directory=temp_path, path=txt_files[0], as_attachment=True)
+        txt_file_path = os.path.join(txt_path, txt_files[0])
+
+        response = convert_txt_to_json(txt_file_path, height, width)
+
+        shutil.rmtree(predict_path)
+
+        return response
 
     except Exception as e:
         return jsonify({"error": "An error occurred", "details": str(e)}), 500
