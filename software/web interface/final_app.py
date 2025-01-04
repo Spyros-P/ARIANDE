@@ -7,6 +7,7 @@ import base64
 import subprocess
 import logging
 import shutil
+from ultralytics import YOLO
 
 from flask_cors import CORS
 
@@ -14,7 +15,7 @@ app = Flask(__name__)
 CORS(app)  
 
 # Global variable for the base path
-BASE_PATH = "/home/dimitris/projects/hipeac/"
+BASE_PATH = "C:/Users/thano"
 
 DEVICE = 'cpu'
 MODEL_ARCH = "yolo_nas_m"
@@ -58,6 +59,25 @@ def process_predictions(model_result):
         "bboxes": filtered_bboxes,
         "confidence": filtered_confidence,
         "labels": filtered_labels,
+        "formatted_bboxes": formatted_bboxes
+    }
+    
+    return jsonify(response)
+
+def process_predictions_yolo11(boxes):
+    #boxes[0].xyxy.tolist()[0]
+    formatted_bboxes = [
+        {
+            "x": box.xyxy.tolist()[0][0],  
+            "y": box.xyxy.tolist()[0][1],  
+            "width": box.xyxy.tolist()[0][2] - box.xyxy.tolist()[0][0],  
+            "height": box.xyxy.tolist()[0][3] - box.xyxy.tolist()[0][1],  
+            "label": 'door'
+        }
+        for box in boxes
+    ]
+
+    response = {
         "formatted_bboxes": formatted_bboxes
     }
     
@@ -182,6 +202,42 @@ def predict_rooms():
 
     except Exception as e:
         return jsonify({"error": "An error occurred", "details": str(e)}), 500
+
+@app.route('/predict_doors_yolo11', methods=['POST'])
+def predict_doors_yolo11():
+
+    model_path = os.path.join(BASE_PATH, "Indoor-Navigation/software/web interface/models/full_set_menu-yolo11m_plus2.pt")
+
+    data = request.get_json()
+
+    if 'image' not in data:
+        return jsonify({"error": "No image data provided"}), 400
+    
+    base64_string = data['image']
+    
+    if base64_string.startswith('data:image'):
+        base64_string = base64_string.split(',')[1]
+
+    image_data = base64.b64decode(base64_string)
+
+    image_array = np.frombuffer(image_data, dtype=np.uint8)
+    image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+
+    if image is None:
+        return jsonify({"error": "Invalid image format"}), 400
+
+    model = YOLO(model_path)
+
+    results = model(image)[0]
+
+    doors_classes = [1, 2]
+    boxes = [box for box in results.boxes if int(box.cls) in doors_classes]
+
+    return process_predictions_yolo11(boxes)
+    # app.logger.info(boxes[0].xyxy.tolist()[0])
+
+    # return jsonify({"ok" : "ok"})
+
 
 if __name__ == '__main__':
     app.run(debug=True)
