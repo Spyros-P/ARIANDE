@@ -33,6 +33,8 @@ const AnnotateFloorPlan = () => {
     depth: 3,
   });
   const [showDetails, setShowDetails] = useState(false);
+  const [showOtherFields, setShowOtherFields] = useState(false);
+
   const [isLoadingInference, setIsLoadingInference] = useState(false);
   const [fileType, setFileType] = useState(null);
   const [fileTypeError, setFileTypeError] = useState("");
@@ -116,7 +118,7 @@ const AnnotateFloorPlan = () => {
     setBuildingName(e.target.value);
     if (e.target.value.length > 10) setBuildingNameError("Too large name!");
     else if (e.target.value.length === 0)
-      setBuildingNameError("Must not be empty");
+      setBuildingNameError("Name must not be empty");
     else setBuildingNameError("");
   };
   return (
@@ -130,7 +132,7 @@ const AnnotateFloorPlan = () => {
               ...{ flex: showDetails ? 5 : 1 },
             }}
           >
-            {currentFileName && (
+            {showOtherFields && !isLoadingInference && currentFileName && (
               <button
                 onClick={() => {
                   setShowDetails(!showDetails);
@@ -166,7 +168,7 @@ const AnnotateFloorPlan = () => {
                   ></CardList>
                 </>
               )}
-              {!currentFileName && (
+              {(!showOtherFields || !currentFileName) && (
                 <CardList
                   onDeleteCard={(x, y, w, h) => {}}
                   cards={[]}
@@ -182,6 +184,8 @@ const AnnotateFloorPlan = () => {
         )}{" "}
         <div style={columnStyleMain}>
           <FloorPlanImage
+            setFileType={setFileType}
+            setBuildingImgSrc={setBuildingImgSrc}
             setShowDetails={setShowDetails}
             setIsLoadingInference={setIsLoadingInference}
             isLoadingInference={isLoadingInference}
@@ -191,48 +195,32 @@ const AnnotateFloorPlan = () => {
             generateCSV={generateCSV}
             setImageDimensions={setImageDimensions}
             setCurrentFileName={setCurrentFileName}
+            setShowOtherFields={setShowOtherFields}
             highlightedBox={highlightedBox}
             setHighlightedBox={setHighlightedBox}
             currentBoundingBoxes={currentBoundingBoxes}
             setCurrentBoundingBoxes={setCurrentBoundingBoxes}
             setDetectedBoundingBoxes={setDetectedBoundingBoxes}
             detectedBoundingBoxes={detectedBoundingBoxes}
+            setBuildingNameError={setBuildingNameError}
+            setBuildingName={setBuildingName}
+            currentFileName={currentFileName}
             imageSrc={
               "https://wpmedia.roomsketcher.com/content/uploads/2022/01/06145940/What-is-a-floor-plan-with-dimensions.png"
             } // Replace with your image URL
           />
-          {currentFileName && !isLoadingInference && (
+          {!isLoadingInference && showOtherFields && currentFileName && (
             <div
               style={{
                 width: "600px",
                 display: "flex",
+                flex: 1,
                 flexDirection: "column",
                 justifyContent: "center",
                 alignItems: "center",
                 gap: 30,
               }}
             >
-              {!buildingImgSrc && (
-                <FileInputComponent
-                  setFileType={setFileType}
-                  onChangeMethod={handleBuildingImage}
-                  style={{
-                    width: "500px",
-                    borderColor: fileTypeError ? "red" : "#d1d5db",
-                    backgroundColor: fileTypeError
-                      ? "rgb(194, 156, 160)"
-                      : "#f9fafb",
-                  }}
-                  customMessage={"Click to upload the image of your building"}
-                />
-              )}
-              {buildingImgSrc && (
-                <ImageDisplay
-                  imageSrc={buildingImgSrc}
-                  onCancel={() => setBuildingImgSrc(null)}
-                  onDownload={() => downloadImage(buildingImgSrc)}
-                />
-              )}
               <div
                 style={{
                   display: "flex",
@@ -240,37 +228,78 @@ const AnnotateFloorPlan = () => {
                   alignItems: "center",
                 }}
               >
-                <input
-                  type="text"
-                  placeholder={
-                    buildingNameError
-                      ? buildingNameError
-                      : "Enter building's name"
-                  }
+                {!buildingImgSrc && (
+                  <FileInputComponent
+                    errorMessage={fileTypeError}
+                    setFileType={setFileType}
+                    onChangeMethod={handleBuildingImage}
+                    style={{
+                      width: "600px",
+                      borderColor: fileTypeError ? "red" : "#d1d5db",
+                      backgroundColor: fileTypeError
+                        ? "rgb(194, 156, 160)"
+                        : "#f9fafb",
+                    }}
+                    customMessage={"Click to upload the image of your building"}
+                  />
+                )}
+                {buildingImgSrc && (
+                  <ImageDisplay
+                    imageSrc={buildingImgSrc}
+                    onCancel={() => setBuildingImgSrc(null)}
+                    onDownload={() => downloadImage(buildingImgSrc)}
+                  />
+                )}
+                <div
                   style={{
-                    ...nameInput,
-                    backgroundColor: buildingNameError
-                      ? "rgb(206, 83, 83)"
-                      : "#f0f8ff",
-                  }}
-                  onFocus={(e) => (e.target.style.backgroundColor = "#e0f7fa")}
-                  onBlur={(e) => (e.target.style.backgroundColor = "#f0f8ff")}
-                  onChange={handleBuildingName}
-                />{" "}
-                {/* <p
-                  style={{
-                    position: "fixed",
-                    marginTop: 50,
-                    color: "rgb(206, 83, 83)",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
                   }}
                 >
-                  {buildingNameError}
-                </p> */}
+                  <input
+                    type="text"
+                    placeholder={"Enter building's name"}
+                    style={{
+                      ...nameInput,
+                      backgroundColor: buildingNameError
+                        ? "rgb(206, 83, 83)"
+                        : "#f0f8ff",
+                    }}
+                    onFocus={(e) =>
+                      (e.target.style.backgroundColor = "#e0f7fa")
+                    }
+                    onBlur={(e) => (e.target.style.backgroundColor = "#f0f8ff")}
+                    onChange={handleBuildingName}
+                  />{" "}
+                </div>
+                <div
+                  style={{
+                    width: "100%",
+                    display: "flex",
+                    flexDirection: "row",
+                    justifyContent: "center",
+                  }}
+                >
+                  <p
+                    style={{
+                      position: "fixed",
+                      marginTop: -10,
+                      color: "rgb(206, 83, 83)",
+                    }}
+                  >
+                    {buildingNameError}
+                  </p>
+                </div>
               </div>
-
               <button
                 class="submit-btn"
-                disabled={fileTypeError || buildingNameError || !buildingImgSrc}
+                disabled={
+                  fileTypeError ||
+                  buildingNameError ||
+                  buildingName.length === 0 ||
+                  !buildingImgSrc
+                }
                 style={submitButton}
                 onClick={() => alert("Submitted!")}
               >
@@ -278,7 +307,7 @@ const AnnotateFloorPlan = () => {
               </button>
             </div>
           )}
-        </div>{" "}
+        </div>
       </div>
     </div>
   );

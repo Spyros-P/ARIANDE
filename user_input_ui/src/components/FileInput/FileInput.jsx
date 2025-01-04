@@ -5,6 +5,7 @@ export function FileInputComponent({
   onChangeMethod,
   setFileType,
   customMessage,
+  errorMessage,
   ...styleArgs
 }) {
   console.log(styleArgs);
@@ -108,7 +109,12 @@ export function FileInputComponent({
           </p>
           <p style={{ fontSize: "0.75rem", color: "#6b7280" }}>
             PNG, JPG, or JPEG
-          </p>
+          </p>{" "}
+          {errorMessage && (
+            <p style={{ fontSize: "1rem", color: "rgb(192, 60, 60)" }}>
+              {errorMessage}
+            </p>
+          )}
         </div>
         <FileInput
           id="dropzone-file"

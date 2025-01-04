@@ -14,7 +14,7 @@ app = Flask(__name__)
 CORS(app)  
 
 # Global variable for the base path
-BASE_PATH = "C:/Users/thano"
+BASE_PATH = "/home/dimitris/projects/hipeac/"
 
 DEVICE = 'cpu'
 MODEL_ARCH = "yolo_nas_m"
@@ -74,10 +74,10 @@ def convert_txt_to_json(txt_file_path, image_width, image_height):
                 points = list(map(float, parts[1:]))
                 point_objects = []
                 for i in range(0, len(points), 2):
-                    x = points[i] #* image_width
-                    y = points[i + 1] #* image_height
+                    x = points[i] * image_width
+                    y = points[i + 1] * image_height
                     point_objects.append({"x": x, "y": y})
-                data.append({"points": point_objects, "label": ""})
+                data.append({"points": point_objects, "label": "Uknown"})
     return jsonify(data)
 
 @app.route('/predict_doors', methods=['POST'])
@@ -117,9 +117,12 @@ def predict_rooms():
 
         if 'image' not in data:
             return jsonify({"error": "No image data provided"}), 400
+        if 'imageDimensions' not in data:
+            return jsonify({"error": "No image dimensions data provided"}), 400
         
         base64_string = data['image']
-        
+        image_dimensions = data['imageDimensions']
+
         if base64_string.startswith('data:image'):
             base64_string = base64_string.split(',')[1]
 
@@ -152,7 +155,6 @@ def predict_rooms():
             "show_conf=False",
             "show_boxes=False"
         ]
-
         predict_path = os.path.join(temp_path, "predict")
         try:
             shutil.rmtree(predict_path)
@@ -172,7 +174,7 @@ def predict_rooms():
             return jsonify({"error": "No .txt file generated"}), 500
         txt_file_path = os.path.join(txt_path, txt_files[0])
 
-        response = convert_txt_to_json(txt_file_path, height, width)
+        response = convert_txt_to_json(txt_file_path, image_dimensions['width'], image_dimensions['height'])
 
         shutil.rmtree(predict_path)
 
