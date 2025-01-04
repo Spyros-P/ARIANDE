@@ -64,6 +64,9 @@ const FloorPlanImage = ({
   setBuildingName,
   setBuildingNameError,
   currentFileName,
+  imageSrc,
+  setImageSrc,
+  setInferenceError,
 }) => {
   const [isDrawing, setIsDrawing] = useState(false); // Track if the user is currently drawing a box
   const [startPoint, setStartPoint] = useState({ x: 0, y: 0 }); // Starting coordinates of the box
@@ -76,7 +79,6 @@ const FloorPlanImage = ({
   const [selectedLabel, setSelectedLabel] = useState(""); // Selected label from the dropdown
   const [customLabel, setCustomLabel] = useState(""); // Custom label text
   const [boxToLabel, setBoxToLabel] = useState(null); // The bounding box that needs labeling
-  const [imageSrc, setImageSrc] = useState(null); // State to store the uploaded image
   const [fileType, setFileType] = useState(null);
   const [fileTypeError, setFileTypeError] = useState("");
   const [cursor, setCursor] = useState({ x: 0, y: 0 });
@@ -152,7 +154,11 @@ const FloorPlanImage = ({
   };
 
   useEffect(() => {
-    if (imageSrc) {
+    if (
+      imageSrc &&
+      roomData.length === 0 &&
+      detectedBoundingBoxes.length === 0
+    ) {
       setIsLoadingInference(true);
       const sendImageToServer = async () => {
         let base64String = imageSrc;
@@ -208,7 +214,11 @@ const FloorPlanImage = ({
             console.error("Error from server:", await response.text());
           }
           setIsLoadingInference(false);
+          setInferenceError("");
         } catch (error) {
+          setInferenceError(
+            error?.message || "Error when analyzing the floor plan. Try again!"
+          );
           console.error("Error during image upload:", error);
           setIsLoadingInference(false);
         }
@@ -261,18 +271,20 @@ const FloorPlanImage = ({
   }, []);
 
   useEffect(() => {
-    if (!validFileTypes.includes(fileType)) {
-      setShowOtherFields(false);
-      if (fileType !== null && fileType !== "") {
-        setFileTypeError(`${fileType} is not supported!`);
-        setImageSrc(null);
-        setCurrentFileName(null);
+    if (detectedBoundingBoxes.length === 0) {
+      if (!validFileTypes.includes(fileType)) {
+        setShowOtherFields(false);
+        if (fileType !== null && fileType !== "") {
+          setFileTypeError(`${fileType} is not supported!`);
+          setImageSrc(null);
+          setCurrentFileName(null);
+        }
+      } else {
+        setTimeout(() => {
+          setShowOtherFields(true);
+          setFileTypeError("");
+        }, 200);
       }
-    } else {
-      setTimeout(() => {
-        setShowOtherFields(true);
-        setFileTypeError("");
-      }, 200);
     }
   }, [fileType, imageSrc]);
 

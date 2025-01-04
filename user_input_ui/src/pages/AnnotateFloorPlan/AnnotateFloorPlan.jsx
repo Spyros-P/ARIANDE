@@ -1,8 +1,11 @@
 import React, { useContext, useState } from "react";
+import axios from "axios";
 import { CardList } from "../../components/CardList/CardList.jsx";
 import FloorPlanImage from "../../components/FloorPlanImage/FloorPlanImage.jsx";
 import { faArrowLeft, faArrowRight } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { Audio } from "react-loader-spinner";
+
 import {
   cardContainer,
   columnStyleMain,
@@ -20,6 +23,8 @@ import Header from "../../components/Header/Header.jsx";
 import { WindowSizeContext } from "../../context/WindowSize/WindowSize.jsx";
 import FileInputComponent from "../../components/FileInput/FileInput.jsx";
 import ImageDisplay from "../../components/ShowImage/ShowImage.jsx";
+import { base64ToBlob } from "../../utils/base64ToBlob.js";
+import { createBuildingReqBody } from "../../utils/createBuildingReqBody.js";
 
 const validFileTypes = ["png", "jpeg", "jpg"];
 const AnnotateFloorPlan = () => {
@@ -41,6 +46,11 @@ const AnnotateFloorPlan = () => {
   const [buildingImgSrc, setBuildingImgSrc] = useState(null);
   const [buildingName, setBuildingName] = useState("");
   const [buildingNameError, setBuildingNameError] = useState("");
+  const [floorPlanImageSrc, setFloorPlanImageSrc] = useState(null); // State to store the uploaded image
+  const [isLoadingSubmit, setIsLoadingSubmit] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [inferenceError, setInferenceError] = useState("");
 
   const { width, height } = useContext(WindowSizeContext);
 
@@ -121,53 +131,147 @@ const AnnotateFloorPlan = () => {
       setBuildingNameError("Name must not be empty");
     else setBuildingNameError("");
   };
+
+  const uploadImage = async (imageBase64, imageName) => {
+    const formData = new FormData();
+    const contentType = imageBase64.split(":")[1].split(";")[0];
+    // Create Blob and append to FormData
+    const imageBlob = base64ToBlob(imageBase64, contentType);
+    formData.append(
+      "files",
+      imageBlob,
+      `${imageName}-${Math.random().toString().split(".")[1].slice(0, 7)}.${
+        contentType.split("/")[1]
+      }`
+    );
+
+    // Upload to Strapi
+    const response = await axios.post(
+      `${process.env.REACT_APP_STRAPI_URL}/api/upload`,
+
+      formData,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.REACT_APP_API_KEY_STRAPI}`, // Add API Key here
+        },
+      }
+    );
+
+    return response.data[0].id;
+  };
+
+  const handleSubmitToStrapi = async () => {
+    setIsLoadingSubmit(true);
+    try {
+      let buildingImageID = await uploadImage(buildingImgSrc, buildingName);
+      let floorPlanImageID = await uploadImage(
+        floorPlanImageSrc,
+        currentFileName
+      );
+      const response = await axios.post(
+        `${process.env.REACT_APP_STRAPI_URL}/api/buildings?status=draft`,
+        createBuildingReqBody(buildingName, floorPlanImageID, buildingImageID),
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.REACT_APP_API_KEY_STRAPI}`, // Add API Key here
+          },
+        }
+      );
+      setIsSubmitted(true);
+      setTimeout(() => {
+        window.location.reload();
+      }, 3000);
+    } catch (error) {
+      // setIsSubmitted(false);
+      setSubmitError(error?.message || "An error occured. Please try again!");
+
+      setTimeout(() => {
+        setIsLoadingSubmit(false);
+        setSubmitError("");
+      }, 3000);
+    }
+  };
+
   return (
     // <CardList cards={[1, 2, 3]} title={"Model's Bounding Boxes"}></CardList>
     <div style={pageContainer}>
       <div style={containerStyle}>
-        {width > 900 && (
+        {inferenceError && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              width: "100%",
+            }}
+          >
+            <p
+              style={{
+                color: "rgb(192, 79, 79)",
+                fontSize: 30,
+              }}
+            >
+              {inferenceError}
+            </p>
+            <button
+              onClick={() => {
+                window.location.reload();
+              }}
+              className="cancel"
+            >
+              Reload
+            </button>
+          </div>
+        )}
+        {width > 900 && !inferenceError && (
           <div
             style={{
               ...columnStyleSecondary,
               ...{ flex: showDetails ? 5 : 1 },
             }}
           >
-            {showOtherFields && !isLoadingInference && currentFileName && (
-              <button
-                onClick={() => {
-                  setShowDetails(!showDetails);
-                }}
-                className="details-button"
-                style={showDetailsButton}
-              >
-                <FontAwesomeIcon
-                  icon={showDetails ? faArrowLeft : faArrowRight}
-                />
-              </button>
-            )}
+            {showOtherFields &&
+              !isLoadingInference &&
+              currentFileName &&
+              !isLoadingSubmit && (
+                <button
+                  onClick={() => {
+                    setShowDetails(!showDetails);
+                  }}
+                  className="details-button"
+                  style={showDetailsButton}
+                >
+                  <FontAwesomeIcon
+                    icon={showDetails ? faArrowLeft : faArrowRight}
+                  />
+                </button>
+              )}
 
             <div style={cardContainer}>
-              {currentFileName && showDetails && !isLoadingInference && (
-                <>
-                  {" "}
-                  <CardList
-                    size="medium"
-                    onDeleteCard={(x, y, w, h) => onDeleteCard(x, y, w, h, 1)}
-                    setCurrentBoundingBoxes={setCurrentBoundingBoxes}
-                    setDetectedBoundingBoxes={setDetectedBoundingBoxes}
-                    cards={detectedBoundingBoxes}
-                    title={"Model's Bounding Boxes"}
-                    onSelectDelete={onSelectDelete}
-                  ></CardList>
-                  <CardList
-                    size="medium"
-                    onDeleteCard={(x, y, w, h) => onDeleteCard(x, y, w, h, 2)}
-                    cards={currentBoundingBoxes}
-                    title={"My Bounding Boxes"}
-                    onSelectDelete={onSelectDelete}
-                  ></CardList>
-                </>
-              )}
+              {currentFileName &&
+                showDetails &&
+                !isLoadingInference &&
+                !isLoadingSubmit && (
+                  <>
+                    {" "}
+                    <CardList
+                      size="medium"
+                      onDeleteCard={(x, y, w, h) => onDeleteCard(x, y, w, h, 1)}
+                      setCurrentBoundingBoxes={setCurrentBoundingBoxes}
+                      setDetectedBoundingBoxes={setDetectedBoundingBoxes}
+                      cards={detectedBoundingBoxes}
+                      title={"Model's Bounding Boxes"}
+                      onSelectDelete={onSelectDelete}
+                    ></CardList>
+                    <CardList
+                      size="medium"
+                      onDeleteCard={(x, y, w, h) => onDeleteCard(x, y, w, h, 2)}
+                      cards={currentBoundingBoxes}
+                      title={"My Bounding Boxes"}
+                      onSelectDelete={onSelectDelete}
+                    ></CardList>
+                  </>
+                )}
               {(!showOtherFields || !currentFileName) && (
                 <CardList
                   onDeleteCard={(x, y, w, h) => {}}
@@ -182,74 +286,46 @@ const AnnotateFloorPlan = () => {
             </div>
           </div>
         )}{" "}
-        <div style={columnStyleMain}>
-          <FloorPlanImage
-            setFileType={setFileType}
-            setBuildingImgSrc={setBuildingImgSrc}
-            setShowDetails={setShowDetails}
-            setIsLoadingInference={setIsLoadingInference}
-            isLoadingInference={isLoadingInference}
-            onDeleteDoor={onDeleteCard}
-            imageDimensions={imageDimensions}
-            generateXML={generateXML}
-            generateCSV={generateCSV}
-            setImageDimensions={setImageDimensions}
-            setCurrentFileName={setCurrentFileName}
-            setShowOtherFields={setShowOtherFields}
-            highlightedBox={highlightedBox}
-            setHighlightedBox={setHighlightedBox}
-            currentBoundingBoxes={currentBoundingBoxes}
-            setCurrentBoundingBoxes={setCurrentBoundingBoxes}
-            setDetectedBoundingBoxes={setDetectedBoundingBoxes}
-            detectedBoundingBoxes={detectedBoundingBoxes}
-            setBuildingNameError={setBuildingNameError}
-            setBuildingName={setBuildingName}
-            currentFileName={currentFileName}
-            imageSrc={
-              "https://wpmedia.roomsketcher.com/content/uploads/2022/01/06145940/What-is-a-floor-plan-with-dimensions.png"
-            } // Replace with your image URL
-          />
-          {!isLoadingInference && showOtherFields && currentFileName && (
-            <div
-              style={{
-                width: "600px",
-                display: "flex",
-                flex: 1,
-                flexDirection: "column",
-                justifyContent: "center",
-                alignItems: "center",
-                gap: 30,
-              }}
-            >
+        {!isLoadingSubmit && !inferenceError && (
+          <div style={columnStyleMain}>
+            <FloorPlanImage
+              setFileType={setFileType}
+              setBuildingImgSrc={setBuildingImgSrc}
+              setShowDetails={setShowDetails}
+              setIsLoadingInference={setIsLoadingInference}
+              isLoadingInference={isLoadingInference}
+              onDeleteDoor={onDeleteCard}
+              imageDimensions={imageDimensions}
+              generateXML={generateXML}
+              generateCSV={generateCSV}
+              setImageDimensions={setImageDimensions}
+              setCurrentFileName={setCurrentFileName}
+              setShowOtherFields={setShowOtherFields}
+              highlightedBox={highlightedBox}
+              setHighlightedBox={setHighlightedBox}
+              currentBoundingBoxes={currentBoundingBoxes}
+              setCurrentBoundingBoxes={setCurrentBoundingBoxes}
+              setDetectedBoundingBoxes={setDetectedBoundingBoxes}
+              detectedBoundingBoxes={detectedBoundingBoxes}
+              setBuildingNameError={setBuildingNameError}
+              setBuildingName={setBuildingName}
+              currentFileName={currentFileName}
+              setImageSrc={setFloorPlanImageSrc}
+              imageSrc={floorPlanImageSrc}
+              setInferenceError={setInferenceError}
+            />
+            {!isLoadingInference && showOtherFields && currentFileName && (
               <div
                 style={{
+                  width: "600px",
                   display: "flex",
+                  flex: 1,
                   flexDirection: "column",
+                  justifyContent: "center",
                   alignItems: "center",
+                  gap: 30,
                 }}
               >
-                {!buildingImgSrc && (
-                  <FileInputComponent
-                    errorMessage={fileTypeError}
-                    setFileType={setFileType}
-                    onChangeMethod={handleBuildingImage}
-                    style={{
-                      width: "600px",
-                      borderColor: fileTypeError ? "red" : "#d1d5db",
-                      backgroundColor: fileTypeError
-                        ? "rgb(194, 156, 160)"
-                        : "#f9fafb",
-                    }}
-                    customMessage={"Click to upload the image of your building"}
-                  />
-                )}
-                {buildingImgSrc && (
-                  <ImageDisplay
-                    imageSrc={buildingImgSrc}
-                    onCancel={() => setBuildingImgSrc(null)}
-                    onDownload={() => downloadImage(buildingImgSrc)}
-                  />
-                )}
                 <div
                   style={{
                     display: "flex",
@@ -257,57 +333,146 @@ const AnnotateFloorPlan = () => {
                     alignItems: "center",
                   }}
                 >
-                  <input
-                    type="text"
-                    placeholder={"Enter building's name"}
+                  {!buildingImgSrc && (
+                    <FileInputComponent
+                      errorMessage={fileTypeError}
+                      setFileType={setFileType}
+                      onChangeMethod={handleBuildingImage}
+                      style={{
+                        width: "600px",
+                        borderColor: fileTypeError ? "red" : "#d1d5db",
+                        backgroundColor: fileTypeError
+                          ? "rgb(194, 156, 160)"
+                          : "#f9fafb",
+                      }}
+                      customMessage={
+                        "Click to upload the image of your building"
+                      }
+                    />
+                  )}
+                  {buildingImgSrc && (
+                    <ImageDisplay
+                      imageSrc={buildingImgSrc}
+                      onCancel={() => setBuildingImgSrc(null)}
+                      onDownload={() => downloadImage(buildingImgSrc)}
+                    />
+                  )}
+                  <div
                     style={{
-                      ...nameInput,
-                      backgroundColor: buildingNameError
-                        ? "rgb(206, 83, 83)"
-                        : "#f0f8ff",
-                    }}
-                    onFocus={(e) =>
-                      (e.target.style.backgroundColor = "#e0f7fa")
-                    }
-                    onBlur={(e) => (e.target.style.backgroundColor = "#f0f8ff")}
-                    onChange={handleBuildingName}
-                  />{" "}
-                </div>
-                <div
-                  style={{
-                    width: "100%",
-                    display: "flex",
-                    flexDirection: "row",
-                    justifyContent: "center",
-                  }}
-                >
-                  <p
-                    style={{
-                      position: "fixed",
-                      marginTop: -10,
-                      color: "rgb(206, 83, 83)",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
                     }}
                   >
-                    {buildingNameError}
-                  </p>
+                    <input
+                      type="text"
+                      placeholder={"Enter building's name"}
+                      style={{
+                        ...nameInput,
+                        backgroundColor: buildingNameError
+                          ? "rgb(206, 83, 83)"
+                          : "#f0f8ff",
+                      }}
+                      onFocus={(e) =>
+                        (e.target.style.backgroundColor = "#e0f7fa")
+                      }
+                      onBlur={(e) =>
+                        (e.target.style.backgroundColor = "#f0f8ff")
+                      }
+                      onChange={handleBuildingName}
+                    />{" "}
+                  </div>
+                  <div
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      flexDirection: "row",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <p
+                      style={{
+                        position: "fixed",
+                        marginTop: -10,
+                        color: "rgb(206, 83, 83)",
+                      }}
+                    >
+                      {buildingNameError}
+                    </p>
+                  </div>
                 </div>
+                <button
+                  class="submit-btn"
+                  disabled={
+                    fileTypeError ||
+                    buildingNameError ||
+                    buildingName.length === 0 ||
+                    !buildingImgSrc
+                  }
+                  style={submitButton}
+                  onClick={handleSubmitToStrapi}
+                >
+                  Submit
+                </button>
               </div>
-              <button
-                class="submit-btn"
-                disabled={
-                  fileTypeError ||
-                  buildingNameError ||
-                  buildingName.length === 0 ||
-                  !buildingImgSrc
-                }
-                style={submitButton}
-                onClick={() => alert("Submitted!")}
-              >
-                Submit
-              </button>
+            )}
+          </div>
+        )}
+        {isLoadingSubmit && (
+          <div style={columnStyleMain}>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                alignItems: "start",
+                gap: 10,
+              }}
+            >
+              {!isSubmitted && !submitError && (
+                <Audio
+                  height="80"
+                  width="80"
+                  radius="9"
+                  color="white"
+                  ariaLabel="loading"
+                  wrapperStyle
+                  wrapperClass
+                />
+              )}
+              {isLoadingSubmit && !isSubmitted && !submitError && (
+                <p
+                  style={{
+                    color: "white",
+                    fontSize: 30,
+                  }}
+                >
+                  Uploading...
+                </p>
+              )}
+              {isSubmitted && (
+                <p
+                  style={{
+                    color: "rgb(54, 223, 195)",
+                    fontSize: 30,
+                  }}
+                >
+                  Your building was uploaded!
+                </p>
+              )}
+
+              {submitError && (
+                <p
+                  style={{
+                    color: "rgb(214, 76, 76)",
+                    fontSize: 30,
+                  }}
+                >
+                  {submitError}
+                </p>
+              )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
