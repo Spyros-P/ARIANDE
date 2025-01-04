@@ -15,7 +15,7 @@ app = Flask(__name__)
 CORS(app)  
 
 # Global variable for the base path
-BASE_PATH = "C:/Users/thano"
+BASE_PATH = "/home/dimitris/projects/hipeac"
 
 DEVICE = 'cpu'
 MODEL_ARCH = "yolo_nas_m"

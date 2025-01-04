@@ -51,8 +51,18 @@ const AnnotateFloorPlan = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [inferenceError, setInferenceError] = useState("");
+  const [lat, setLat] = useState(null);
+  const [lon, setLon] = useState(null);
 
   const { width, height } = useContext(WindowSizeContext);
+
+  const handleLat = (e) => {
+    setLat(e.target.value);
+  };
+
+  const handleLon = (e) => {
+    setLon(e.target.value);
+  };
 
   const onDeleteCard = (x, y, w, h, i) => {
     if (i === 1 || i === 3)
@@ -126,7 +136,7 @@ const AnnotateFloorPlan = () => {
   const handleBuildingName = (e) => {
     console.log(e.target.value);
     setBuildingName(e.target.value);
-    if (e.target.value.length > 10) setBuildingNameError("Too large name!");
+    if (e.target.value.length > 15) setBuildingNameError("Too large name!");
     else if (e.target.value.length === 0)
       setBuildingNameError("Name must not be empty");
     else setBuildingNameError("");
@@ -170,7 +180,13 @@ const AnnotateFloorPlan = () => {
       );
       const response = await axios.post(
         `${process.env.REACT_APP_STRAPI_URL}/api/buildings?status=draft`,
-        createBuildingReqBody(buildingName, floorPlanImageID, buildingImageID),
+        createBuildingReqBody(
+          buildingName,
+          floorPlanImageID,
+          buildingImageID,
+          lat,
+          lon
+        ),
         {
           headers: {
             Authorization: `Bearer ${process.env.REACT_APP_API_KEY_STRAPI}`, // Add API Key here
@@ -373,32 +389,47 @@ const AnnotateFloorPlan = () => {
                           ? "rgb(206, 83, 83)"
                           : "#f0f8ff",
                       }}
-                      onFocus={(e) =>
-                        (e.target.style.backgroundColor = "#e0f7fa")
-                      }
-                      onBlur={(e) =>
-                        (e.target.style.backgroundColor = "#f0f8ff")
-                      }
                       onChange={handleBuildingName}
                     />{" "}
-                  </div>
-                  <div
-                    style={{
-                      width: "100%",
-                      display: "flex",
-                      flexDirection: "row",
-                      justifyContent: "center",
-                    }}
-                  >
                     <p
                       style={{
-                        position: "fixed",
                         marginTop: -10,
                         color: "rgb(206, 83, 83)",
                       }}
                     >
                       {buildingNameError}
                     </p>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "row",
+                        justifyContent: "center",
+                        gap: 10,
+                      }}
+                    >
+                      <input
+                        type="number"
+                        placeholder={"lat"}
+                        id="floatInput"
+                        style={{
+                          ...nameInput,
+                          width: "20%",
+                        }}
+                        step="0.01"
+                        onChange={handleLat}
+                      />{" "}
+                      <input
+                        type="number"
+                        step="0.01"
+                        id="floatInput"
+                        placeholder={"lon"}
+                        style={{
+                          ...nameInput,
+                          width: "20%",
+                        }}
+                        onChange={handleLon}
+                      />{" "}
+                    </div>
                   </div>
                 </div>
                 <button
@@ -407,7 +438,9 @@ const AnnotateFloorPlan = () => {
                     fileTypeError ||
                     buildingNameError ||
                     buildingName.length === 0 ||
-                    !buildingImgSrc
+                    !buildingImgSrc ||
+                    !lat ||
+                    !lon
                   }
                   style={submitButton}
                   onClick={handleSubmitToStrapi}

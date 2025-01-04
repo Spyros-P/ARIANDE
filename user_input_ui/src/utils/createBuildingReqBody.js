@@ -3,14 +3,16 @@ import { generateBidFromName } from "./makeBid";
 export const createBuildingReqBody = (
   buildingName,
   floorPlanImageID,
-  buildingImageID
+  buildingImageID,
+  lat,
+  lon
 ) => {
   return {
     data: {
       bid: generateBidFromName(buildingName),
       name: buildingName,
-      lat: 42.42,
-      lon: 17.17,
+      lat: lat,
+      lon: lon,
       graph: {
         Graph: [
           {
