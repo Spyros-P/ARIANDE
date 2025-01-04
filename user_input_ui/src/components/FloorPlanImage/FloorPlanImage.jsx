@@ -174,13 +174,16 @@ const FloorPlanImage = ({
         formData.append("image", base64String); // Attach the base64 string to the FormData
 
         try {
-          const response = await fetch("http://127.0.0.1:5000/predict_doors_yolo11", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json", // Setting header for JSON payload
-            },
-            body: JSON.stringify({ image: base64String }), // Send base64 string in the JSON body
-          });
+          const response = await fetch(
+            "http://127.0.0.1:5000/predict_doors_yolo11",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json", // Setting header for JSON payload
+              },
+              body: JSON.stringify({ image: base64String }), // Send base64 string in the JSON body
+            }
+          );
           console.log("DIM", imageDimensions);
           const responseForRooms = await fetch(
             "http://127.0.0.1:5000/predict_rooms",
@@ -717,16 +720,17 @@ const FloorPlanImage = ({
           <button
             className="cancel"
             onClick={() => {
-              setImageSrc(null);
-              setCurrentBoundingBoxes([]);
-              setDetectedBoundingBoxes([]);
-              setCurrentFileName(null);
-              setShowDetails(false);
-              setShowOtherFields(false);
-              setBuildingImgSrc(null);
-              setBuildingName("");
-              setBuildingNameError("");
-              setImageDimensions({ width: 0, height: 0, depth: 3 });
+              // setImageSrc(null);
+              // setCurrentBoundingBoxes([]);
+              // setDetectedBoundingBoxes([]);
+              // setCurrentFileName(null);
+              // setShowDetails(false);
+              // setShowOtherFields(false);
+              // setBuildingImgSrc(null);
+              // setBuildingName("");
+              // setBuildingNameError("");
+              // setImageDimensions({ width: 0, height: 0, depth: 3 });
+              window.location.reload();
             }}
           >
             Back
