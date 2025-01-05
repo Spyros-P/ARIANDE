@@ -86,13 +86,13 @@ static void get_tx_power(uint8_t handle_type, uint16_t handle, int8_t *tx_pwr_lv
 
 	net_buf_unref(rsp);
 }
-
-static const int8_t txpower[8] = {4, 0, -3, -8,-15, -18, -23, -30}; // hight --> low  Tx power 
+//-20 to +8 dBm TX power, configurable in 4 dB steps
+static const int8_t txpower[8] = {8, 4, 0, -4,-8,-12, -16, -20}; // hight --> low  Tx power  (-62 dbm to -30dbm)
 int TX_ID = 0;
 
 //Help functions// 
-static void PRINT_TX(){ 
-    int8_t txp_get = 0;
+static void PRINT_TX() { 
+    int8_t txp_get= 0;
     printk("Get Tx power level -> ");
 	get_tx_power(BT_HCI_VS_LL_HANDLE_TYPE_ADV,0, &txp_get);
 	printk("TXP = %d\n", txp_get);
@@ -103,7 +103,7 @@ static void SET_TX(int tx_id){
 	set_tx_power(BT_HCI_VS_LL_HANDLE_TYPE_ADV,0, txpower[tx_id]);
 }
 
-/* GPIO configuration for buttons (2 buttons in this example) */
+/* GPIO configuration for buttons (4 buttons in this example) */
 static const struct gpio_dt_spec button1 = GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw0), gpios, {0});
 static const struct gpio_dt_spec button2 = GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw1), gpios, {0});
 static const struct gpio_dt_spec button3 = GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw2), gpios, {0});
@@ -116,6 +116,7 @@ static struct gpio_callback button4_cb_data;
 
 /* Flag to check if a button was pressed */
 static bool button_pressed = false;
+static bool tx_on = false;
 
 /* Advertisement data */
 static const struct bt_data ad[] = {
@@ -145,12 +146,13 @@ static int current_max_interval = BT_GAP_ADV_FAST_INT_MAX_1;
 #define  DECREASE_PERCENTAGE  0.9; 
 
 // Define limits for the intervals  => Range: 0x0020 to 0x4000
-#define MIN_INTERVAL_LIMIT 0x0030  // Lower limit 
+#define MIN_INTERVAL_LIMIT 0x0030  // Lower limit  ( 33 ms to 126 ms  NOW)
 #define MAX_INTERVAL_LIMIT 0x00F0  // Upper limit 
 
 /* help functions */
+
 /* Bluetooth ready callback */
- static void bt_ready_decrease_interval(int err) 
+ static void bt_ready_button_pressed(int err) 
  {
     char addr_s[BT_ADDR_LE_STR_LEN];
     bt_addr_le_t addr = {0};
@@ -163,19 +165,10 @@ static int current_max_interval = BT_GAP_ADV_FAST_INT_MAX_1;
 
     printk("Bluetooth initialized\n"); 
 
-    // Decrease by DECREASE_PERCENTAGE
-    current_min_interval = current_min_interval * DECREASE_PERCENTAGE;
-    current_max_interval = current_max_interval * DECREASE_PERCENTAGE;
-
-       if (current_min_interval < MIN_INTERVAL_LIMIT) {
-        current_min_interval = MIN_INTERVAL_LIMIT;
-        current_max_interval = MIN_INTERVAL_LIMIT*1.2;
-    } 
-
     /* Start advertising */ 
 
-	    //set-1 default//
-		err = bt_le_adv_start(BT_LE_ADV_PARAM(BT_LE_ADV_OPT_USE_IDENTITY, \
+	//set-1 default//
+	err = bt_le_adv_start(BT_LE_ADV_PARAM(BT_LE_ADV_OPT_USE_IDENTITY, \
 							current_min_interval, \
 							current_max_interval , \
 							NULL), ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
@@ -184,126 +177,35 @@ static int current_max_interval = BT_GAP_ADV_FAST_INT_MAX_1;
 			return;
 		}
 
-    bt_id_get(&addr, &count);
-    bt_addr_le_to_str(&addr, addr_s, sizeof(addr_s));
-    printk("Beacon started SLOW DOWN, advertising as %s\n", addr_s); 
-    printk("Interval decreased: MIN=%d, MAX=%d\n", current_min_interval, current_max_interval);
-
-}
-
- static void bt_ready_increase_interval(int err) 
- {
-    char addr_s[BT_ADDR_LE_STR_LEN];
-    bt_addr_le_t addr = {0};
-    size_t count = 1;
-
-    if (err) {
-        printk("Bluetooth init failed (err %d)\n", err);
-        return;
-    }
-
-    printk("Bluetooth initialized\n"); 
-
-    current_min_interval = current_min_interval * INCREASE_PERCENTAGE;
-    current_max_interval = current_max_interval * INCREASE_PERCENTAGE;
-
-    // Ensure the intervals don't go above a maximum value
-    if (current_max_interval > MAX_INTERVAL_LIMIT) {
-        current_max_interval = MAX_INTERVAL_LIMIT;
-        current_min_interval = MAX_INTERVAL_LIMIT*0.8;
-    }
-    /* Start advertising */ 
-
-	    //set-1 default//
-		err = bt_le_adv_start(BT_LE_ADV_PARAM(BT_LE_ADV_OPT_USE_IDENTITY, \
-							current_min_interval, \
-							current_max_interval, \
-							NULL), ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
-		if (err) {
-			printk("Advertising failed to start (err %d)\n", err);
-			return;
-		}
+    if(tx_on) SET_TX(TX_ID);    
 
     bt_id_get(&addr, &count);
     bt_addr_le_to_str(&addr, addr_s, sizeof(addr_s));
-    printk("Beacon started SPEED UP, advertising as %s\n", addr_s);
-    printk("Interval increased: MIN=%d, MAX=%d\n", current_min_interval, current_max_interval);
-}
-
- static void bt_ready_decrease_tx(int err) 
- {
-    char addr_s[BT_ADDR_LE_STR_LEN];
-    bt_addr_le_t addr = {0};
-    size_t count = 1;
-
-    if (err) {
-        printk("Bluetooth init failed (err %d)\n", err);
-        return;
-    }
-
-    printk("Bluetooth initialized\n"); 
-
-    /* Start advertising */ 
-
-	    //set-1 default//
-		err = bt_le_adv_start(BT_LE_ADV_PARAM(BT_LE_ADV_OPT_USE_IDENTITY, \
-							current_min_interval, \
-							current_max_interval, \
-							NULL), ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
-		if (err) {
-			printk("Advertising failed to start (err %d)\n", err);
-			return;
-		}
-
-    bt_id_get(&addr, &count);
-    bt_addr_le_to_str(&addr, addr_s, sizeof(addr_s));
-    printk("Beacon started SLOW DOWN TX  advertising as %s\n", addr_s);
-    SET_TX(TX_ID);
-    
-}
-
- static void bt_ready_increase_tx(int err) 
- {
-    char addr_s[BT_ADDR_LE_STR_LEN];
-    bt_addr_le_t addr = {0};
-    size_t count = 1;
-
-    if (err) {
-        printk("Bluetooth init failed (err %d)\n", err);
-        return;
-    }
-
-    printk("Bluetooth initialized\n"); 
-
-    /* Start advertising */ 
-
-	    //set-1 default//
-		err = bt_le_adv_start(BT_LE_ADV_PARAM(BT_LE_ADV_OPT_USE_IDENTITY, \
-							current_min_interval, \
-							current_max_interval, \
-							NULL), ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
-		if (err) {
-			printk("Advertising failed to start (err %d)\n", err);
-			return;
-		}
-
-    bt_id_get(&addr, &count);
-    bt_addr_le_to_str(&addr, addr_s, sizeof(addr_s));
-    printk("Beacon started SPEED UP TX  advertising as %s\n", addr_s);
-    SET_TX(TX_ID);
-    
-}
+    printk("Beacon started, advertising as %s\n", addr_s); 
+ }
 
 /* Button press handlers */
 void button1_pressed(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
 {   
 
-    if (current_min_interval > MIN_INTERVAL_LIMIT) { //current_min_interval <= 0x0030)
+    if (current_min_interval > MIN_INTERVAL_LIMIT) { 
         bt_disable();
-        int err = bt_enable(bt_ready_decrease_interval);
+
+        // Decrease by DECREASE_PERCENTAGE
+        current_min_interval = current_min_interval * DECREASE_PERCENTAGE;
+        current_max_interval = current_max_interval * DECREASE_PERCENTAGE;
+
+       if (current_min_interval < MIN_INTERVAL_LIMIT) {
+            current_min_interval = MIN_INTERVAL_LIMIT;
+            current_max_interval = MIN_INTERVAL_LIMIT*1.2;
+       } 
+        tx_on = false;
+        int err = bt_enable(bt_ready_button_pressed);
         if (err) {
             printk("Bluetooth init failed (err %d)\n", err);
         } 
+
+        printk("Interval decreased: MIN=%d, MAX=%d\n", current_min_interval, current_max_interval);
     } else { 
         printk("Minimum interval reached. No further decrease allowed.\n");
     } 
@@ -313,10 +215,22 @@ void button2_pressed(const struct device *dev, struct gpio_callback *cb, uint32_
 {   
     if (current_max_interval < MAX_INTERVAL_LIMIT) { //current_min_interval <= 0x0030
         bt_disable();
-        int err = bt_enable(bt_ready_increase_interval);
+
+        // Increase
+        current_min_interval = current_min_interval * INCREASE_PERCENTAGE;
+        current_max_interval = current_max_interval * INCREASE_PERCENTAGE;
+
+        // Ensure the intervals don't go above a maximum value
+        if (current_max_interval > MAX_INTERVAL_LIMIT) {
+            current_max_interval = MAX_INTERVAL_LIMIT;
+            current_min_interval = MAX_INTERVAL_LIMIT*0.8;
+        }
+        tx_on = false;
+        int err = bt_enable(bt_ready_button_pressed);
         if (err) {
             printk("Bluetooth init failed (err %d)\n", err);
         }
+        printk("Interval increased: MIN=%d, MAX=%d\n", current_min_interval, current_max_interval);
     }else { 
         printk("Maximum interval reached. No further increase allowed.\n");
     }      
@@ -325,23 +239,27 @@ void button2_pressed(const struct device *dev, struct gpio_callback *cb, uint32_
 void button3_pressed(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
 {   
     if (TX_ID > 0) {
-         TX_ID = TX_ID - 1;     
         bt_disable();
-        int err = bt_enable(bt_ready_increase_tx);
+         TX_ID = TX_ID - 1;     
+        printk("Beacon started SLOW DOWN TX \n");
+        tx_on = true;
+        int err = bt_enable(bt_ready_button_pressed);
         if (err) {
             printk("Bluetooth init failed (err %d)\n", err);
         }
     }else{ 
-        printk("Maximum Tx reached. No further decrease allowed.\n");
+        printk("Maximum Tx reached. No further increase allowed.\n");
     }   
 }
 
 void button4_pressed(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
 {   
     if (TX_ID < 7) {
-        TX_ID = TX_ID + 1;     
         bt_disable();
-        int err = bt_enable(bt_ready_decrease_tx);
+        TX_ID = TX_ID + 1;     
+        printk("Beacon started SPEED UP TX \n");
+        tx_on = true;
+        int err = bt_enable(bt_ready_button_pressed);
         if (err) {
             printk("Bluetooth init failed (err %d)\n", err);
         }
