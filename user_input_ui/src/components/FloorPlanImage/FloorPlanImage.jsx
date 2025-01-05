@@ -67,6 +67,8 @@ const FloorPlanImage = ({
   imageSrc,
   setImageSrc,
   setInferenceError,
+  roomData,
+  setRoomData,
 }) => {
   const [isDrawing, setIsDrawing] = useState(false); // Track if the user is currently drawing a box
   const [startPoint, setStartPoint] = useState({ x: 0, y: 0 }); // Starting coordinates of the box
@@ -88,7 +90,7 @@ const FloorPlanImage = ({
   const [highlightedRoom, setHighlightedRoom] = useState(null); // Room to be highlighted
   const { width: windowWidth, height } = useContext(WindowSizeContext);
 
-  const [roomData, setRoomData] = useState([]);
+  // const [roomData, setRoomData] = useState([]);
   const transformWrapperRef = useRef(null);
 
   // Function to place the rubbish bin at specific position
@@ -179,9 +181,9 @@ const FloorPlanImage = ({
             {
               method: "POST",
               headers: {
-                "Content-Type": "application/json", // Setting header for JSON payload
+                "Content-Type": "application/json",
               },
-              body: JSON.stringify({ image: base64String }), // Send base64 string in the JSON body
+              body: JSON.stringify({ image: base64String }), 
             }
           );
           console.log("DIM", imageDimensions);
@@ -190,12 +192,12 @@ const FloorPlanImage = ({
             {
               method: "POST",
               headers: {
-                "Content-Type": "application/json", // Setting header for JSON payload
+                "Content-Type": "application/json", 
               },
               body: JSON.stringify({
                 image: base64String,
                 imageDimensions: { ...imageDimensions },
-              }), // Send base64 string in the JSON body
+              }),
             }
           );
 

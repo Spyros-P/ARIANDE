@@ -30,6 +30,7 @@ const validFileTypes = ["png", "jpeg", "jpg"];
 const AnnotateFloorPlan = () => {
   const [currentBoundingBoxes, setCurrentBoundingBoxes] = useState([]);
   const [detectedBoundingBoxes, setDetectedBoundingBoxes] = useState([]);
+  const [roomData, setRoomData] = useState([]);
   const [highlightedBox, setHighlightedBox] = useState(null);
   const [currentFileName, setCurrentFileName] = useState("");
   const [imageDimensions, setImageDimensions] = useState({
@@ -172,6 +173,25 @@ const AnnotateFloorPlan = () => {
 
   const handleSubmitToStrapi = async () => {
     setIsLoadingSubmit(true);
+
+    const graph_response = await fetch(
+      "http://127.0.0.1:5000/post_user_feedback",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({doors : detectedBoundingBoxes.concat(currentBoundingBoxes), rooms : roomData}), 
+      }
+    );
+
+    if (graph_response.ok) {
+      const graph = await graph_response.json();
+      console.log('Server Response : ', graph);
+    } else {
+      console.error("Error from server:", await graph_response.text());
+    }
+
     try {
       let buildingImageID = await uploadImage(buildingImgSrc, buildingName);
       let floorPlanImageID = await uploadImage(
@@ -329,6 +349,8 @@ const AnnotateFloorPlan = () => {
               setImageSrc={setFloorPlanImageSrc}
               imageSrc={floorPlanImageSrc}
               setInferenceError={setInferenceError}
+              roomData={roomData}
+              setRoomData={setRoomData}
             />
             {!isLoadingInference && showOtherFields && currentFileName && (
               <div

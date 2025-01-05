@@ -15,7 +15,7 @@ app = Flask(__name__)
 CORS(app)  
 
 # Global variable for the base path
-BASE_PATH = "/home/dimitris/projects/hipeac"
+BASE_PATH = "C:/Users/thano"
 
 DEVICE = 'cpu'
 MODEL_ARCH = "yolo_nas_m"
@@ -234,9 +234,13 @@ def predict_doors_yolo11():
     boxes = [box for box in results.boxes if int(box.cls) in doors_classes]
 
     return process_predictions_yolo11(boxes)
-    # app.logger.info(boxes[0].xyxy.tolist()[0])
 
-    # return jsonify({"ok" : "ok"})
+@app.route('/post_user_feedback', methods=['POST'])
+def post_user_feedback():
+    data = request.get_json()
+    app.logger.info(data)
+    return jsonify({'ok' : 'ok'})
+
 
 
 if __name__ == '__main__':
