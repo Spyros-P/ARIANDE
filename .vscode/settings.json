@@ -1,0 +1,5 @@
+{
+  "python.analysis.extraPaths": [
+    "./software/web interface/predict_walls/UNet_Pytorch_Customdataset"
+  ]
+}

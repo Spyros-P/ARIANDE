@@ -7,6 +7,8 @@ import base64
 import subprocess
 import logging
 import shutil
+from predict_walls.UNet_Pytorch_Customdataset.predict import predict_wall_mask
+
 from ultralytics import YOLO
 
 from flask_cors import CORS
@@ -15,7 +17,7 @@ app = Flask(__name__)
 CORS(app)  
 
 # Global variable for the base path
-BASE_PATH = "C:/Users/thano"
+BASE_PATH = "/home/dimitris/projects/hipeac"
 
 DEVICE = 'cpu'
 MODEL_ARCH = "yolo_nas_m"
@@ -238,8 +240,17 @@ def predict_doors_yolo11():
 @app.route('/post_user_feedback', methods=['POST'])
 def post_user_feedback():
     data = request.get_json()
-    app.logger.info(data)
-    return jsonify({'ok' : 'ok'})
+    doors = data['doors']
+    rooms = data['rooms']
+    mask = predict_wall_mask("./assets/temp_images/temp_image_rooms.jpg", "./predict_walls/UNet_Pytorch_Customdataset/outputs/image.jpg", 25, "./models/checkpoint_epoch500.pth", scale=2)
+
+    app.logger.info(mask)
+    app.logger.info(doors)
+    app.logger.info(rooms)
+
+    # TODO SPYROS
+    
+    return jsonify({'graph' : {}})
 
 
 
