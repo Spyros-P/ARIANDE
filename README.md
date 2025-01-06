@@ -21,7 +21,7 @@ Through this user interface, building owners can register their building in the 
 
 ### 3. Mobile Application  
 
-The user can either download the map of a desired building or select one from their collection of saved maps. By selecting the room they wish to navigate to (from the list of room labels provided by the building owner), the application runs an A* algorithm on the building's navigation graph to calculate the shortest path to the destination. The user is then guided along the shortest path to reach the desired location.  
+The user can either download the map of a desired building or select one from their collection of saved maps. By selecting the room they wish to navigate to (from the list of room labels provided by the building owner), the application runs an A* algorithm on the building's navigation graph to calculate the shortest path to the destination. The user is then guided along the shortest path to reach the desired location. The location of the user at each time point is calculated using a localization algorithm that receives advertising signals from BLE (Bluetooth Low Energy) Beacons that must be installed in the building. 
 
 
 
