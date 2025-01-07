@@ -67,9 +67,12 @@ static void scan_connecting(struct bt_scan_device_info *device_info,
 }
 */
 
+struct bt_le_scan_param scan_param;
+
 BT_SCAN_CB_INIT(scan_cb, scan_filter_match, NULL, NULL, NULL);
 
-static int scan_init(struct bt_le_scan_param scan_param)	
+//static int scan_init(struct bt_le_scan_param scan_param)	
+static int scan_init()
 {
 	//BT_SCAN_CB_INIT(scan_cb, scan_filter_match, NULL, NULL, NULL);
 	int err;
@@ -105,17 +108,25 @@ int observer_start(uint16_t interval, uint16_t window, uint16_t timeout)
 {
 	printk("match packets: %u\n", no_packets);
 
-	struct bt_le_scan_param scan_param = {
-		.options    = BT_LE_SCAN_OPT_NONE,
-		.interval   = interval, // 5 seconds //RULE: scan interval >= scan window
-		.window     = window, // 5 seconds
-		//.window	 = BT_GAP_SCAN_SLOW_WINDOW_1,
-		.timeout	= timeout, // 5 seconds	
-	};
+	// struct bt_le_scan_param scan_param = {
+	// 	.options    = BT_LE_SCAN_OPT_NONE,
+	// 	.interval   = interval, // 5 seconds //RULE: scan interval >= scan window
+	// 	.window     = window, // 5 seconds
+	// 	//.window	 = BT_GAP_SCAN_SLOW_WINDOW_1,
+	// 	.timeout	= timeout, // 5 seconds	
+	// };
+
+	scan_param.options	= BT_LE_SCAN_OPT_NONE;
+	scan_param.interval	= interval;
+	scan_param.window	= window;
+	scan_param.timeout	= timeout;
 
 	int err;
 
-	err = scan_init(scan_param);
+	//err = scan_init(scan_param);
+
+	err = scan_init();
+
 	if (err) {
 		printk("scan_init failed (err %d)\n", err);
 		return err;
@@ -132,7 +143,7 @@ int observer_start(uint16_t interval, uint16_t window, uint16_t timeout)
 	return err;
 }
 
-int scan_reset(uint16_t interval, uint16_t window, uint16_t timeout)
+static void scan_reset_work_handler(struct k_work *work)
 {
 	int err;
 
@@ -142,24 +153,11 @@ int scan_reset(uint16_t interval, uint16_t window, uint16_t timeout)
 	// 	printk("Scanning failed to stop (err %d)\n", err);
 	// }
 
-	struct bt_le_scan_param new_scan_param = {
-		.options    = BT_LE_SCAN_OPT_NONE,
-		.interval   = interval,
-		.window     = window,
-		.timeout    = timeout,
-	};
+	//k_sleep(K_MSEC(100));
 
-	err = bt_scan_stop();
+	printk("Scan window %u, Scan interval %u, Scan timeout %u\n", scan_param.window, scan_param.interval, scan_param.timeout);
 
-	if (err) {
-		printk("Scanning failed to stop (err %d)\n", err);
-	}
-
-	k_sleep(K_MSEC(100));
-
-	printk("Scan window %u, Scan interval %u, Scan timeout %u\n", new_scan_param.window, new_scan_param.interval, new_scan_param.timeout);
-
-	err = bt_scan_params_set(&new_scan_param);
+	err = bt_scan_params_set(&scan_param);
 
 	if (err) {
 		printk("Failed to set new scan parameters (err %d)\n", err);
@@ -167,7 +165,7 @@ int scan_reset(uint16_t interval, uint16_t window, uint16_t timeout)
 
 	printk("Reset parameters: SUCCESS\n");
 
-	//k_sleep(K_MSEC(3000));
+	//k_sleep(K_MSEC(100));
 
 	err = bt_scan_start(BT_SCAN_TYPE_SCAN_PASSIVE);
 
@@ -177,5 +175,34 @@ int scan_reset(uint16_t interval, uint16_t window, uint16_t timeout)
 
 	printk("Scanning successfully restarted\n");
 
-	return err;
+	return;
+}
+
+K_WORK_DEFINE(scan_reset_work, scan_reset_work_handler);
+
+void scan_reset(uint16_t interval, uint16_t window, uint16_t timeout)
+{
+
+	// err = bt_scan_stop();
+
+	// if (err) {
+	// 	printk("Scanning failed to stop (err %d)\n", err);
+	// }
+
+	// struct bt_le_scan_param new_scan_param = {
+	// 	.options    = BT_LE_SCAN_OPT_NONE,
+	// 	.interval   = interval,
+	// 	.window     = window,
+	// 	.timeout    = timeout,
+	// };
+	no_packets = 0;
+	scan_param.interval	= interval;
+	scan_param.window	= window;
+	scan_param.timeout	= timeout;
+
+    k_work_submit(&scan_reset_work);
+
+	printk("Exited handler\n");
+
+	return;
 }

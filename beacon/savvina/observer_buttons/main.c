@@ -38,27 +38,27 @@ static struct gpio_callback button2_cb_data;
 static struct gpio_callback button3_cb_data;
 
 int observer_start(uint16_t interval, uint16_t window, uint16_t timeout);
-int scan_reset(uint16_t interval, uint16_t window, uint16_t timeout);
+void scan_reset(uint16_t interval, uint16_t window, uint16_t timeout);
 
-static void bt_ready_button_pressed(int err) 
-{
-	if (err) {
-		printk("Bluetooth init failed (err %d)\n", err);
-		return;
-	}
+// static void bt_ready_button_pressed(int err) 
+// {
+// 	if (err) {
+// 		printk("Bluetooth init failed (err %d)\n", err);
+// 		return;
+// 	}
 
-	printk("Bluetooth initialized\n"); 
+// 	printk("Bluetooth initialized\n"); 
 
-    //printk("Added bt_scan_filter_disable\n");
+//     //printk("Added bt_scan_filter_disable\n");
     
-    //bt_scan_filter_disable();
+//     //bt_scan_filter_disable();
 
-	(void)observer_start(scan_interval, scan_window, scan_timeout);
+// 	(void)observer_start(scan_interval, scan_window, scan_timeout);
     
-    //printk("Interval: %d, window: %d, timeout: %d\n", scan_interval, scan_window, scan_timeout);
+//     //printk("Interval: %d, window: %d, timeout: %d\n", scan_interval, scan_window, scan_timeout);
 
-	printk("Interval: %d, window: %d, timeout: %d\n", scan_interval, scan_window, scan_timeout);
-}
+// 	printk("Interval: %d, window: %d, timeout: %d\n", scan_interval, scan_window, scan_timeout);
+// }
 
 /* Button press handlers */
 void button1_pressed(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
@@ -80,22 +80,16 @@ void button2_pressed(const struct device *dev, struct gpio_callback *cb, uint32_
 {  
     if (scan_window < scan_window_max) { //current_min_interval <= 0x0030
 
-        if (scan_window + 6.25 > scan_interval) printk("Scan window > scan interval. Increase not allowed.\n");
+        if (scan_window + 6 > scan_interval) printk("Scan window > scan interval. Increase not allowed.\n");
         else{
 
-            scan_window = scan_window + 6.25;
+            scan_window = scan_window + 6;
             
             if (scan_window > scan_window_max) scan_window = scan_window_max;
-
-            bt_disable();
-        
-            int err = bt_enable(bt_ready_button_pressed);
-            if (err) {
-                printk("Bluetooth init failed (err %d)\n", err);
-            }
+            scan_reset(scan_interval, scan_window, scan_timeout);
         }
-    }
-    
+    }   
+
     else  printk("Maximum window reached. No further increase allowed.\n");        
 }
 
@@ -103,16 +97,11 @@ void button3_pressed(const struct device *dev, struct gpio_callback *cb, uint32_
 {   
     if (scan_timeout < scan_timeout_max) { //current_min_interval <= 0x0030
 		
-		scan_timeout = scan_timeout + 6.25;
+		scan_timeout = scan_timeout + 6;
 		
 		if (scan_timeout > scan_timeout_max) scan_timeout = scan_timeout_max;
 
-	    bt_disable();
-     
-	    int err = bt_enable(bt_ready_button_pressed);
-        if (err) {
-            printk("Bluetooth init failed (err %d)\n", err);
-        }
+        scan_reset(scan_interval, scan_window, scan_timeout);
     }
 	
 	else  printk("Maximum timeout reached. No further increase allowed.\n");
