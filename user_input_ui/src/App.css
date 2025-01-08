@@ -7,6 +7,7 @@ body {
   display: flex; /* Use flexbox to allow the content to be flexible */
   flex-direction: column; /* Stack the children elements vertically (optional) */
   font-family: "Poppins", sans-serif;
+  background-color: #4d5050;
 }
 
 /* Ensure the main content fills the screen */
@@ -17,14 +18,26 @@ body {
   flex-direction: column; /* Stack content vertically (if needed) */
 }
 
+a {
+  text-decoration: none;
+}
+
 /* Example of full screen content styling */
 .app {
-  flex: 1; /* Allow the content area to grow and fill available space */
+  flex: 1;
   display: flex;
   justify-content: center; /* Center the content horizontally */
   align-items: center; /* Center the content vertically */
-  padding: 20px; /* Add some padding */
-  box-sizing: border-box; /* Include padding in the element's total size */
+  flex-direction: column;
+}
+.container {
+  flex: 13;
+  width: 100%;
+  height: 100%;
+  display: "flex";
+  flex-direction: column;
+  justify-content: "center";
+  align-items: center;
 }
 /* The modal backdrop */
 .modal {
@@ -53,6 +66,35 @@ body {
   animation: fadeIn 0.3s ease-out;
 }
 
+button.download-image {
+  background: none;
+}
+
+button.download-image:hover {
+  background: none;
+}
+
+button.details-button:hover {
+  background: none;
+}
+button.details-button {
+  background: none;
+}
+
+button.door-deleted {
+  background: none;
+}
+
+button.submit-btn:disabled {
+  background-color: rgb(173, 164, 166);
+  cursor: not-allowed;
+}
+
+button.submit-btn:disabled:hover {
+  cursor: not-allowed;
+  background-color: rgb(173, 164, 166);
+}
+
 /* Label styles */
 label {
   font-size: 14px;
@@ -69,17 +111,13 @@ input[type="text"] {
   padding: 8px;
   margin-top: 8px;
   margin-bottom: 16px;
-  border: 1px solid #ccc;
   border-radius: 4px;
   font-size: 14px;
   color: #333;
-  background-color: #f9f9f9;
-  transition: border-color 0.3s ease;
 }
 
 select:focus,
 input[type="text"]:focus {
-  border-color: #6c8fbf;
   outline: none;
 }
 
@@ -103,6 +141,15 @@ button {
   transition: background-color 0.3s ease;
 }
 
+button.yellow {
+  background-color: #657416;
+}
+
+/* Button hover effects */
+button.yellow:hover {
+  background-color: #97a327;
+}
+
 /* Button hover effects */
 button:hover {
   background-color: #166e63;
@@ -110,7 +157,7 @@ button:hover {
 
 /* Cancel button styles */
 button.cancel {
-  background-color: #8b251e;
+  background-color: #a74b45;
 }
 
 button.cancel:hover {

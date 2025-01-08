@@ -1,13 +1,31 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useContext } from "react";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
-import { ImageContainer, Rectangle } from "./FloorPlanImage";
+import { Audio } from "react-loader-spinner";
+
+import {
+  ImageContainer,
+  Rectangle,
+  buttonsContainer,
+  container,
+  currentRoom,
+  currentRoomContainer,
+  errorMessage,
+  imageContainer,
+} from "./FloorPlanImage";
 import { drawLightPolygon } from "../../utils/drawPolygon";
+import FileInputComponent from "../FileInput/FileInput.jsx";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faTrash } from "@fortawesome/free-solid-svg-icons";
+import { WindowSizeContext } from "../../context/WindowSize/WindowSize.jsx";
+
+const validFileTypes = ["png", "jpeg", "jpg"];
+
 const isPointInPolygon = (point, polygon) => {
-  let [x, y] = point;
+  let { x, y } = point;
   let isInside = false;
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    let [xi, yi] = polygon[i];
-    let [xj, yj] = polygon[j];
+    let { x: xi, y: yi } = polygon[i];
+    let { x: xj, y: yj } = polygon[j];
     const intersect =
       yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
     if (intersect) isInside = !isInside;
@@ -15,12 +33,42 @@ const isPointInPolygon = (point, polygon) => {
   return isInside;
 };
 
+const isPointInBox = (point, box) => {
+  let { x, y } = point;
+  return (
+    x >= box.x &&
+    y >= box.y &&
+    x <= box.x + box.width &&
+    y <= box.y + box.height
+  );
+};
+
 const FloorPlanImage = ({
+  generateXML,
+  generateCSV,
+  setImageDimensions,
+  imageDimensions,
+  setCurrentFileName,
   currentBoundingBoxes,
   setCurrentBoundingBoxes,
   setDetectedBoundingBoxes,
   detectedBoundingBoxes,
   highlightedBox,
+  setHighlightedBox,
+  onDeleteDoor,
+  isLoadingInference,
+  setIsLoadingInference,
+  setShowDetails,
+  setShowOtherFields,
+  setBuildingImgSrc,
+  setBuildingName,
+  setBuildingNameError,
+  currentFileName,
+  imageSrc,
+  setImageSrc,
+  setInferenceError,
+  roomData,
+  setRoomData,
 }) => {
   const [isDrawing, setIsDrawing] = useState(false); // Track if the user is currently drawing a box
   const [startPoint, setStartPoint] = useState({ x: 0, y: 0 }); // Starting coordinates of the box
@@ -33,114 +81,163 @@ const FloorPlanImage = ({
   const [selectedLabel, setSelectedLabel] = useState(""); // Selected label from the dropdown
   const [customLabel, setCustomLabel] = useState(""); // Custom label text
   const [boxToLabel, setBoxToLabel] = useState(null); // The bounding box that needs labeling
-  const [imageSrc, setImageSrc] = useState(null); // State to store the uploaded image
+  const [fileType, setFileType] = useState(null);
+  const [fileTypeError, setFileTypeError] = useState("");
+  const [cursor, setCursor] = useState({ x: 0, y: 0 });
+  const [doorDeleted, setDoorDeleted] = useState(false);
+  // const [currentCsvRecords, setCurrentCsvRecords] = useState([]);
+  // const [currentCsvRecord, setCurrentCsvRecord] = useState([]);
   const [highlightedRoom, setHighlightedRoom] = useState(null); // Room to be highlighted
-  const [roomData, setRoomData] = useState([
-    {
-      floor: 0,
-      label: "Living Room",
-      coords: [
-        [47, 405],
-        [48, 404],
-        [261, 404],
-        [262, 405],
-        [262, 497],
-        [261, 498],
-        [48, 498],
-        [47, 497],
-        [47, 405],
-      ],
-    },
-    {
-      floor: 0,
-      label: "Bathroom",
-      coords: [
-        [47, 257],
-        [48, 256],
-        [182, 256],
-        [183, 257],
-        [183, 396],
-        [182, 397],
-        [164, 397],
-        [163, 398],
-        [48, 398],
-        [47, 397],
-        [47, 257],
-      ],
-    },
-    {
-      floor: 0,
-      label: "Kitchen",
-      coords: [
-        [268, 26],
-        [269, 25],
-        [428, 25],
-        [429, 26],
-        [429, 497],
-        [428, 498],
-        [269, 498],
-        [268, 497],
-        [268, 398],
-        [190, 398],
-        [189, 397],
-        [189, 250],
-        [48, 250],
-        [47, 249],
-        [47, 146],
-        [48, 145],
-        [261, 145],
-        [262, 146],
-        [262, 248],
-        [268, 248],
-        [268, 26],
-      ],
-    },
-    {
-      floor: 0,
-      label: "Bedroom",
-      coords: [
-        [168, 26],
-        [169, 25],
-        [261, 25],
-        [262, 26],
-        [262, 138],
-        [261, 139],
-        [169, 139],
-        [168, 138],
-        [168, 26],
-      ],
-    },
-    {
-      floor: 0,
-      label: "Office",
-      coords: [
-        [47, 26],
-        [48, 25],
-        [161, 25],
-        [162, 26],
-        [162, 138],
-        [161, 139],
-        [48, 139],
-        [47, 138],
-        [47, 26],
-      ],
-    },
-  ]);
+  const { width: windowWidth, height } = useContext(WindowSizeContext);
 
-  // useEffect(() => {
-  //   const canvas = canvasRef?.current;
-  //   const ctx = canvas?.getContext("2d");
-  //   if (highlightedRoom) {
-  //     console.log(highlightedRoom?.label);
-  //     drawLightPolygon(canvas, ctx, highlightedRoom.coords);
-  //   }
-  // }, highlightedRoom);
+  // const [roomData, setRoomData] = useState([]);
+  const transformWrapperRef = useRef(null);
+
+  // Function to place the rubbish bin at specific position
+  const placeRubbishBin = (x, y) => {
+    return (
+      <a
+        onClick={() => {
+          onDeleteDoor(
+            highlightedBox.x,
+            highlightedBox.y,
+            highlightedBox.width,
+            highlightedBox.weight,
+            3
+          );
+          setDoorDeleted(true);
+        }}
+      >
+        <FontAwesomeIcon
+          icon={!doorDeleted ? faTrash : null}
+          size="2x"
+          style={{
+            cursor: "pointer",
+            position: "fixed",
+            color: "red",
+            top: y,
+            left: x,
+            zIndex: 1,
+            transform: "scale(0.5)",
+          }}
+        />
+      </a>
+    );
+  };
+
+  const zoomToBox = (box) => {
+    const { x, y, width, height } = box;
+
+    if (transformWrapperRef.current) {
+      const { setTransform } = transformWrapperRef.current;
+
+      // Calculate the zoom level based on the box size
+      const targetZoom = imageDimensions.width / 350;
+
+      // Calculate the center of the bounding box
+      const centerX = x + width / 2;
+      const centerY = y + height / 2;
+
+      let offX = 0;
+      if (imageDimensions.width > Math.max(500, 0.35 * windowWidth))
+        offX =
+          Math.min(imageDimensions.width, Math.max(500, 0.35 * windowWidth)) /
+          targetZoom;
+
+      // Adjust the view to center the box and apply the zoom level
+      setTransform(
+        -centerX * targetZoom + imageDimensions.width / 2 - offX, // offset by half of the window width
+        -centerY * targetZoom + imageDimensions.height / 2, // offset by half of the window height
+        targetZoom,
+        1000, // Duration of the animation (600ms)
+        "easeOutQuad" // Easing function
+      );
+    }
+  };
+
+  useEffect(() => {
+    if (
+      imageSrc &&
+      roomData.length === 0 &&
+      detectedBoundingBoxes.length === 0
+    ) {
+      setIsLoadingInference(true);
+      const sendImageToServer = async () => {
+        let base64String = imageSrc;
+
+        if (imageSrc.startsWith("<img") || imageSrc.startsWith("data:image")) {
+          base64String = imageSrc.split(",")[1];
+        }
+
+        // Now you have the pure base64 string
+        console.log("Base64 String:", base64String);
+
+        const formData = new FormData();
+        formData.append("image", base64String); // Attach the base64 string to the FormData
+
+        try {
+          const response = await fetch(
+            "http://127.0.0.1:5000/predict_doors_yolo11",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ image: base64String }), 
+            }
+          );
+          console.log("DIM", imageDimensions);
+          const responseForRooms = await fetch(
+            "http://127.0.0.1:5000/predict_rooms",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json", 
+              },
+              body: JSON.stringify({
+                image: base64String,
+                imageDimensions: { ...imageDimensions },
+              }),
+            }
+          );
+
+          console.log("ROOMS", responseForRooms);
+          if (responseForRooms.ok) {
+            const dataRomms = await responseForRooms.json();
+            setRoomData(dataRomms);
+            console.log("Server response:", dataRomms);
+          } else {
+            console.error("Error from server:", await responseForRooms.text());
+          }
+
+          if (response.ok) {
+            const data = await response.json();
+            console.log(data.formatted_bboxes);
+            setDetectedBoundingBoxes(data.formatted_bboxes);
+            console.log("Server response:", data);
+          } else {
+            console.error("Error from server:", await response.text());
+          }
+          setIsLoadingInference(false);
+          setInferenceError("");
+        } catch (error) {
+          setInferenceError(
+            error?.message || "Error when analyzing the floor plan. Try again!"
+          );
+          console.error("Error during image upload:", error);
+          setIsLoadingInference(false);
+        }
+      };
+      console.log("CHANGE", currentFileName);
+      imageDimensions.width !== 0 && sendImageToServer();
+    }
+  }, [imageSrc, imageDimensions.width]);
 
   const highlightRoom = (highlightedRoom) => {
     if (!ctrlPressed) {
       const canvas = canvasRoomsRef?.current;
       const ctx = canvas?.getContext("2d");
-      drawLightPolygon(canvas, ctx, highlightedRoom?.coords || []);
+      drawLightPolygon(canvas, ctx, highlightedRoom?.points || []);
     }
   };
 
@@ -178,15 +275,55 @@ const FloorPlanImage = ({
     };
   }, []);
 
+  useEffect(() => {
+    if (detectedBoundingBoxes.length === 0) {
+      if (!validFileTypes.includes(fileType)) {
+        setShowOtherFields(false);
+        if (fileType !== null && fileType !== "") {
+          setFileTypeError(`${fileType} is not supported!`);
+          setImageSrc(null);
+          setCurrentFileName(null);
+        }
+      } else {
+        setTimeout(() => {
+          setShowOtherFields(true);
+          setFileTypeError("");
+        }, 200);
+      }
+    }
+  }, [fileType, imageSrc]);
+
   // Handle image file selection
   const handleImageChange = (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files[0]; // Get the selected file
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImageSrc(reader.result); // Set image source to the result of FileReader
-      };
-      reader.readAsDataURL(file); // Read the file as a data URL
+      setFileType(file.type.split("/")[1]);
+      setCurrentFileName(file.name);
+      console.log("HAHA", file.type.split("/")[1]);
+      if (validFileTypes.includes(file.type.split("/")[1])) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const imageSrc = reader.result;
+          setImageSrc(imageSrc); // Set image source to the result of FileReader
+
+          // Create an Image object to load the image and retrieve dimensions
+          const img = new Image();
+          img.onload = () => {
+            console.log("Image Width:", img.width);
+            console.log("Image Height:", img.height);
+
+            // Optionally store the dimensions in the state
+            setImageDimensions({
+              width: img.width,
+              height: img.height,
+              depth: 3,
+            });
+            console.log(img);
+          };
+          img.src = imageSrc; // Trigger the image load
+        };
+        reader.readAsDataURL(file); // Read the file as a data URL
+      }
     }
   };
 
@@ -213,7 +350,7 @@ const FloorPlanImage = ({
       detectedBoundingBoxes.concat(currentBoundingBoxes).forEach((box) => {
         ctx.beginPath();
         ctx.rect(box.x, box.y, box.width, box.height);
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 3;
         ctx.strokeStyle = "red";
 
         if (
@@ -223,10 +360,12 @@ const FloorPlanImage = ({
           highlightedBox.width === box.width &&
           highlightedBox.height === box.height
         ) {
+          if (!isPointInBox({ x: cursor.x, y: cursor.y }, highlightedBox))
+            zoomToBox(highlightedBox);
           ctx.strokeStyle = "purple"; // Highlight the box with a blue color
           ctx.lineWidth = 4; // Make the border thicker
         } else {
-          ctx.strokeStyle = "red"; // Default color for other boxes
+          ctx.strokeStyle = "rgb(85, 190, 162)"; // Default color for other boxes
         }
         ctx.stroke();
 
@@ -283,12 +422,21 @@ const FloorPlanImage = ({
   // Mouse move event to update the current bounding box while dragging
   const handleMouseMove = (e) => {
     const { offsetX, offsetY } = e.nativeEvent;
+    setCursor({ x: offsetX, y: offsetY });
+    // setHighlightedBox(null);
+    currentBoundingBoxes.concat(detectedBoundingBoxes).forEach((box) => {
+      if (isPointInBox({ x: offsetX, y: offsetY }, box)) {
+        setHighlightedBox(box);
+        setDoorDeleted(false);
+      }
+    });
+
     const width = offsetX - startPoint.x;
     const height = offsetY - startPoint.y;
     setTimeout(() => {
       // Check if the mouse is inside any room and highlight the room
       for (const room of roomData) {
-        if (isPointInPolygon([offsetX, offsetY], room.coords)) {
+        if (isPointInPolygon({ x: offsetX, y: offsetY }, room.points)) {
           setHighlightedRoom(room); // Set the highlighted room
           highlightRoom(room);
           return;
@@ -309,12 +457,29 @@ const FloorPlanImage = ({
       width: width,
       height: height,
     });
+    // setCurrentCsvRecord({
+    //   filename: fileName,
+    //   width: 500,
+    //   height: 500,
+    //   class: "door",
+    //   xmin: startPoint.x,
+    //   ymin: startPoint.y,
+    //   xmax: startPoint.x + width,
+    //   ymax: startPoint.y + height,
+    // });
+
+    // setCurrentCsvRecords(
+    //   `${fileName}, 500, 500, door, ${startPoint.x}, ${startPoint.y}, ${
+    //     startPoint.x + width
+    //   }, ${startPoint.y + height}`
+    // );
   };
 
   // Mouse up event to finalize the bounding box and trigger the modal
   const handleMouseUp = () => {
     if (!isDrawing) return; // Only add the box if drawing is in progress
-
+    // console.log(currentCsvRecords);
+    // setCurrentCsvRecords([...currentCsvRecords, currentCsvRecord]);
     setIsDrawing(false); // End drawing
     if (currentBox) {
       const newBox = { ...currentBox, label: "door" };
@@ -328,11 +493,11 @@ const FloorPlanImage = ({
   const handleRightClick = (e) => {
     e.preventDefault(); // Prevent the default right-click menu
     const { offsetX, offsetY } = e.nativeEvent;
-    const clickedPoint = [offsetX, offsetY];
+    const clickedPoint = { x: offsetX, y: offsetY };
 
     // Check if the clicked point is inside any room
     for (const room of roomData) {
-      if (isPointInPolygon(clickedPoint, room.coords)) {
+      if (isPointInPolygon(clickedPoint, room.points)) {
         setRoomToLabel(room);
         setShowModal(true);
         return;
@@ -387,55 +552,111 @@ const FloorPlanImage = ({
     }
   }, [imageIsGrabbed, ctrlPressed]);
 
-  // console.log(roomData);
+  console.log(Math.max(500, 0.35 * windowWidth));
 
   return (
-    <div>
-      <p style={{ color: "rgb(31, 87, 90)" }}>
-        Current Room: {highlightedRoom ? highlightedRoom.label : "-"}
-      </p>
+    <div style={imageContainer}>
+      {imageSrc && !isLoadingInference && (
+        <div
+          style={{
+            ...currentRoomContainer,
+            ...{ width: `${Math.min(500, imageDimensions.width)}px` },
+          }}
+        >
+          <p style={currentRoom}>
+            Current Room: {highlightedRoom ? highlightedRoom.label : "-"}
+          </p>
+        </div>
+      )}
       {!imageSrc && (
-        <input
-          type="file"
-          accept="image/*"
-          onChange={handleImageChange}
-          style={{ padding: "10px", fontSize: "16px" }}
+        <FileInputComponent
+          errorMessage={fileTypeError}
+          customMessage={"Click to upload your floor plan"}
+          setFileType={setFileType}
+          style={{
+            borderColor: fileTypeError ? "red" : "#d1d5db",
+            backgroundColor: fileTypeError ? "rgb(194, 156, 160)" : "#f9fafb",
+          }}
+          onChangeMethod={handleImageChange}
         />
       )}
-
-      {imageSrc && (
-        <Rectangle
-          onMouseDown={grabImage}
-          onMouseUp={leaveImage}
+      {/* <p style={errorMessage}>{fileTypeError}</p> */}
+      {isLoadingInference && (
+        <div
           style={{
-            cursor: imageCursor,
-            width: "100%",
-            height: "100%",
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "start",
+            gap: 10,
+          }}
+        >
+          <Audio
+            height="80"
+            width="80"
+            radius="9"
+            color="white"
+            ariaLabel="loading"
+            wrapperStyle
+            wrapperClass
+          />
+          <p style={{ color: "white", fontSize: 30 }}>Loading...</p>
+        </div>
+      )}
+
+      {imageSrc && !isLoadingInference && (
+        <Rectangle
+          style={{
+            width: `${Math.min(
+              imageDimensions.width,
+              Math.max(500, 0.35 * windowWidth)
+            )}px`,
+            height: `${Math.min(
+              imageDimensions.width,
+              Math.max(500, 0.35 * windowWidth)
+            )}px`,
+            borderRadius: 20,
           }}
         >
           <TransformWrapper
+            ref={transformWrapperRef}
             initialScale={1.2}
             initialPositionX={0}
             initialPositionY={0}
             disabled={ctrlPressed}
+            limitToBounds={false}
           >
             <ImageContainer
+              style={{
+                cursor: imageCursor,
+                display: "flex", // Flexbox for the image container
+                justifyContent: "center", // Center image horizontally
+                alignItems: "center", // Center image vertically
+                position: "relative", // Allows overlay of canvases
+              }}
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
               onContextMenu={handleRightClick} // Right-click event
             >
-              <TransformComponent>
+              <TransformComponent
+                onMouseDown={grabImage}
+                onMouseUp={leaveImage}
+              >
                 <img
                   ref={imageRef}
                   src={imageSrc}
                   alt="Uploaded Floor Plan"
                   style={{
-                    width: "100%",
-                    height: "auto",
+                    maxHeight: "none",
+                    maxWidth: "none",
                     objectFit: "contain",
                   }}
                 />
+                {highlightedBox &&
+                  placeRubbishBin(
+                    highlightedBox?.x + highlightedBox.width - 3,
+                    highlightedBox?.y - 10
+                  )}
                 <canvas
                   ref={canvasRef}
                   style={{
@@ -493,6 +714,33 @@ const FloorPlanImage = ({
               </button>
             </div>
           </div>
+        </div>
+      )}
+      {imageSrc && !isLoadingInference && (
+        <div style={buttonsContainer}>
+          {" "}
+          <button
+            className="cancel"
+            onClick={() => {
+              // setImageSrc(null);
+              // setCurrentBoundingBoxes([]);
+              // setDetectedBoundingBoxes([]);
+              // setCurrentFileName(null);
+              // setShowDetails(false);
+              // setShowOtherFields(false);
+              // setBuildingImgSrc(null);
+              // setBuildingName("");
+              // setBuildingNameError("");
+              // setImageDimensions({ width: 0, height: 0, depth: 3 });
+              window.location.reload();
+            }}
+          >
+            Back
+          </button>
+          <button onClick={generateCSV}>Download CSV</button>
+          <button className="yellow" onClick={generateXML}>
+            Download XML
+          </button>
         </div>
       )}
     </div>

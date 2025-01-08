@@ -8,7 +8,7 @@ export const cardStyle = {
   fontSize: "14px",
   lineHeight: "1.6",
   color: "#333",
-  backgroundColor: "#f9f9f9",
+  backgroundColor: "#a3b4b4",
   boxShadow: "0 4px 8px rgba(0, 0, 0, 0.05)",
 };
 

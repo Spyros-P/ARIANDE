@@ -27,10 +27,10 @@ export function drawLightPolygon(
 
   // Begin the path
   ctx.beginPath();
-  ctx.moveTo(coordinates[0][0], coordinates[0][1]); // Move to the first vertex
+  ctx.moveTo(coordinates[0].x, coordinates[0].y); // Move to the first vertex
 
   // Draw lines to each subsequent vertex
-  coordinates.forEach(([x, y]) => {
+  coordinates.forEach(({ x, y }) => {
     ctx.lineTo(x, y);
   });
 
