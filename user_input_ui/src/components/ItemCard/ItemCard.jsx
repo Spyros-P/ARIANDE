@@ -38,7 +38,8 @@ export const ObjectCard = ({
           <strong>Height:</strong> {height}
         </p>
         <p style={infoStyle}>
-          <strong>Start Coordinates:</strong> ({startCoords.x}, {startCoords.y})
+          <strong>Start Coordinates:</strong> ({startCoords.x.toFixed(0)},
+          {startCoords.y.toFixed(0)})
         </p>
       </div>
       <button

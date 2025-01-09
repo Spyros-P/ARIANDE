@@ -238,7 +238,6 @@ const AnnotateFloorPlan = () => {
       }, 3000);
     }
   };
-
   return (
     // <CardList cards={[1, 2, 3]} title={"Model's Bounding Boxes"}></CardList>
     <div style={pageContainer}>
@@ -482,7 +481,9 @@ const AnnotateFloorPlan = () => {
                     buildingName.length === 0 ||
                     !buildingImgSrc ||
                     !lat ||
-                    !lon
+                    !lon ||
+                    !distancePerPixel ||
+                    distancePerPixel === 0
                   }
                   style={submitButton}
                   onClick={handleSubmitToStrapi}

@@ -303,10 +303,8 @@ const FloorPlanImage = ({
           setCurrentFileName(null);
         }
       } else {
-        setTimeout(() => {
-          setShowOtherFields(true);
-          setFileTypeError("");
-        }, 200);
+        setShowOtherFields(true);
+        setFileTypeError("");
       }
     }
   }, [fileType, imageSrc]);
@@ -315,13 +313,17 @@ const FloorPlanImage = ({
   const handleImageChange = (e) => {
     const file = e.target.files[0]; // Get the selected file
     if (file) {
-      setFileType(file.type.split("/")[1]);
-      setCurrentFileName(file.name);
+      setTimeout(() => {
+        setFileType(file.type.split("/")[1]);
+        setCurrentFileName(file.name);
+      }, 100);
+
       console.log("HAHA", file.type.split("/")[1]);
       if (validFileTypes.includes(file.type.split("/")[1])) {
         const reader = new FileReader();
         reader.onloadend = () => {
           const imageSrc = reader.result;
+
           setImageSrc(imageSrc); // Set image source to the result of FileReader
 
           // Create an Image object to load the image and retrieve dimensions
