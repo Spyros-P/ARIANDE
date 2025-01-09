@@ -54,6 +54,7 @@ const AnnotateFloorPlan = () => {
   const [inferenceError, setInferenceError] = useState("");
   const [lat, setLat] = useState(null);
   const [lon, setLon] = useState(null);
+  const [doorDeleted, setDoorDeleted] = useState(false);
 
   const { width, height } = useContext(WindowSizeContext);
 
@@ -80,6 +81,7 @@ const AnnotateFloorPlan = () => {
             box.x !== x && box.y !== y && box.width !== w && box.height !== h
         )
       );
+    setDoorDeleted(true);
   };
 
   const onSelectDelete = (x, y, w, h) => {
@@ -181,13 +183,16 @@ const AnnotateFloorPlan = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({doors : detectedBoundingBoxes.concat(currentBoundingBoxes), rooms : roomData}), 
+        body: JSON.stringify({
+          doors: detectedBoundingBoxes.concat(currentBoundingBoxes),
+          rooms: roomData,
+        }),
       }
     );
 
     if (graph_response.ok) {
       const graph = await graph_response.json();
-      console.log('Server Response : ', graph);
+      console.log("Server Response : ", graph);
     } else {
       console.error("Error from server:", await graph_response.text());
     }
@@ -292,7 +297,9 @@ const AnnotateFloorPlan = () => {
                     {" "}
                     <CardList
                       size="medium"
-                      onDeleteCard={(x, y, w, h) => onDeleteCard(x, y, w, h, 1)}
+                      onDeleteCard={(x, y, w, h) => {
+                        onDeleteCard(x, y, w, h, 1);
+                      }}
                       setCurrentBoundingBoxes={setCurrentBoundingBoxes}
                       setDetectedBoundingBoxes={setDetectedBoundingBoxes}
                       cards={detectedBoundingBoxes}
@@ -350,12 +357,13 @@ const AnnotateFloorPlan = () => {
               imageSrc={floorPlanImageSrc}
               setInferenceError={setInferenceError}
               roomData={roomData}
+              setDoorDeleted={setDoorDeleted}
+              doorDeleted={doorDeleted}
               setRoomData={setRoomData}
             />
             {!isLoadingInference && showOtherFields && currentFileName && (
               <div
                 style={{
-                  width: "600px",
                   display: "flex",
                   flex: 1,
                   flexDirection: "column",

@@ -69,6 +69,8 @@ const FloorPlanImage = ({
   setInferenceError,
   roomData,
   setRoomData,
+  doorDeleted,
+  setDoorDeleted,
 }) => {
   const [isDrawing, setIsDrawing] = useState(false); // Track if the user is currently drawing a box
   const [startPoint, setStartPoint] = useState({ x: 0, y: 0 }); // Starting coordinates of the box
@@ -84,7 +86,6 @@ const FloorPlanImage = ({
   const [fileType, setFileType] = useState(null);
   const [fileTypeError, setFileTypeError] = useState("");
   const [cursor, setCursor] = useState({ x: 0, y: 0 });
-  const [doorDeleted, setDoorDeleted] = useState(false);
   // const [currentCsvRecords, setCurrentCsvRecords] = useState([]);
   // const [currentCsvRecord, setCurrentCsvRecord] = useState([]);
   const [highlightedRoom, setHighlightedRoom] = useState(null); // Room to be highlighted
@@ -105,7 +106,8 @@ const FloorPlanImage = ({
             highlightedBox.weight,
             3
           );
-          setDoorDeleted(true);
+          // setDoorDeleted(true);
+          // zoomToBox(highlightedBox);
         }}
       >
         <FontAwesomeIcon
@@ -183,7 +185,7 @@ const FloorPlanImage = ({
               headers: {
                 "Content-Type": "application/json",
               },
-              body: JSON.stringify({ image: base64String }), 
+              body: JSON.stringify({ image: base64String }),
             }
           );
           console.log("DIM", imageDimensions);
@@ -192,7 +194,7 @@ const FloorPlanImage = ({
             {
               method: "POST",
               headers: {
-                "Content-Type": "application/json", 
+                "Content-Type": "application/json",
               },
               body: JSON.stringify({
                 image: base64String,
@@ -533,11 +535,10 @@ const FloorPlanImage = ({
     }
   };
 
-  // Handle the modal Cancel button (delete the bounding box)
   const handleModalCancel = () => {
-    setCurrentBoundingBoxes((prevBoxes) =>
-      prevBoxes.filter((box) => box !== boxToLabel)
-    );
+    // setCurrentBoundingBoxes((prevBoxes) =>
+    //   prevBoxes.filter((box) => box !== boxToLabel)
+    // );
     setShowModal(false);
     setImageCursor("grab");
   };
