@@ -18,9 +18,21 @@
 #include <zephyr/bluetooth/hci.h>
 #include <zephyr/bluetooth/hci_vs.h>
 #include <zephyr/sys/byteorder.h>
+#include <zephyr/bluetooth/uuid.h> //extra
 
 #define DEVICE_NAME CONFIG_BT_DEVICE_NAME
 #define DEVICE_NAME_LEN (sizeof(DEVICE_NAME) - 1)
+
+//global parameters
+static struct bt_le_adv_param adv_param;
+
+//-20 to +8 dBm TX power, configurable in 4 dB steps
+static const int8_t txpower[8] = {8, 4, 0, -4,-8,-12, -16, -20}; // hight --> low  Tx power  , (-62 dbm to -30dbm)
+int TX_ID = 0;
+static uint32_t scan_request_counter = 0;
+
+/* Flag to check ... */
+static bool tx_on = false;
 
 // TX FUNCTIONS // 
 static void set_tx_power(uint8_t handle_type, uint16_t handle, int8_t tx_pwr_lvl)
@@ -86,19 +98,16 @@ static void get_tx_power(uint8_t handle_type, uint16_t handle, int8_t *tx_pwr_lv
 
 	net_buf_unref(rsp);
 }
-//-20 to +8 dBm TX power, configurable in 4 dB steps
-static const int8_t txpower[8] = {8, 4, 0, -4,-8,-12, -16, -20}; // hight --> low  Tx power  (-62 dbm to -30dbm)
-int TX_ID = 0;
 
 //Help functions// 
-static void PRINT_TX() { 
+static void print_tx() { 
     int8_t txp_get= 0;
     printk("Get Tx power level -> ");
 	get_tx_power(BT_HCI_VS_LL_HANDLE_TYPE_ADV,0, &txp_get);
 	printk("TXP = %d\n", txp_get);
 }
 
-static void SET_TX(int tx_id){ 
+static void set_tx(int tx_id){ 
     printk("Set Tx power level to %d\n", txpower[tx_id]);
 	set_tx_power(BT_HCI_VS_LL_HANDLE_TYPE_ADV,0, txpower[tx_id]);
 }
@@ -114,9 +123,6 @@ static struct gpio_callback button2_cb_data;
 static struct gpio_callback button3_cb_data;
 static struct gpio_callback button4_cb_data;
 
-/* Flag to check if a button was pressed */
-static bool button_pressed = false;
-static bool tx_on = false;
 
 /* Advertisement data */
 static const struct bt_data ad[] = {
@@ -132,10 +138,16 @@ static const struct bt_data ad[] = {
                   0x08) /* .org */
 };
 
-/* Scan Response data */
-static const struct bt_data sd[] = {
-    BT_DATA(BT_DATA_NAME_COMPLETE, DEVICE_NAME, DEVICE_NAME_LEN),
-}; 
+// /* Scan Response data */  //NUll for now
+// static const struct bt_data sd[] = {
+//     BT_DATA(BT_DATA_NAME_COMPLETE, DEVICE_NAME, DEVICE_NAME_LEN),
+// }; 
+
+static void scan_req_callback(const bt_addr_le_t *addr, int8_t rssi)
+{
+    scan_request_counter++;
+    printk("Scan request received. Total count: %d\n", scan_request_counter);
+}
 
 //initialize interval
 static int current_min_interval = BT_GAP_ADV_FAST_INT_MIN_1;
@@ -146,51 +158,35 @@ static int current_max_interval = BT_GAP_ADV_FAST_INT_MAX_1;
 #define  DECREASE_PERCENTAGE  0.9; 
 
 // Define limits for the intervals  => Range: 0x0020 to 0x4000
-#define MIN_INTERVAL_LIMIT 0x0030  // Lower limit  ( 33 ms to 126 ms  NOW)
-#define MAX_INTERVAL_LIMIT 0x00F0  // Upper limit 
+#define MIN_INTERVAL_LIMIT 0x0030  // Lower limit  ( 33 ms to 126 ms  NOW)  // BLE_GAP_ADV_INTERVAL_MIN 
+#define MAX_INTERVAL_LIMIT 0x00F0  // Upper limit                           // BLE_GAP_ADV_INTERVAL_MAX  
 
-/* help functions */
 
-/* Bluetooth ready callback */
- static void bt_ready_button_pressed(int err) 
- {
-    char addr_s[BT_ADDR_LE_STR_LEN];
-    bt_addr_le_t addr = {0};
-    size_t count = 1;
-
+//help functions//
+static void start_advertising_handler(struct k_work *work)
+{   
+    bt_le_adv_stop();
+    
+    int err;
+    err = bt_le_adv_start(&adv_param, ad, ARRAY_SIZE(ad), NULL, 0);
     if (err) {
-        printk("Bluetooth init failed (err %d)\n", err);
+        printk("Advertising failed to start (err %d)\n", err);
         return;
     }
+    
+    if(tx_on) set_tx(TX_ID);
 
-    printk("Bluetooth initialized\n"); 
-
-    /* Start advertising */ 
-
-	//set-1 default//
-	err = bt_le_adv_start(BT_LE_ADV_PARAM(BT_LE_ADV_OPT_USE_IDENTITY, \
-							current_min_interval, \
-							current_max_interval , \
-							NULL), ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
-		if (err) {
-			printk("Advertising failed to start (err %d)\n", err);
-			return;
-		}
-
-    if(tx_on) SET_TX(TX_ID);    
-
-    bt_id_get(&addr, &count);
-    bt_addr_le_to_str(&addr, addr_s, sizeof(addr_s));
-    printk("Beacon started, advertising as %s\n", addr_s); 
  }
+
+K_WORK_DEFINE(start_advertising_work, start_advertising_handler);
 
 /* Button press handlers */
 void button1_pressed(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
 {   
-
+ 
     if (current_min_interval > MIN_INTERVAL_LIMIT) { 
-        bt_disable();
-
+          
+        tx_on = false;
         // Decrease by DECREASE_PERCENTAGE
         current_min_interval = current_min_interval * DECREASE_PERCENTAGE;
         current_max_interval = current_max_interval * DECREASE_PERCENTAGE;
@@ -199,12 +195,15 @@ void button1_pressed(const struct device *dev, struct gpio_callback *cb, uint32_
             current_min_interval = MIN_INTERVAL_LIMIT;
             current_max_interval = MIN_INTERVAL_LIMIT*1.2;
        } 
-        tx_on = false;
-        int err = bt_enable(bt_ready_button_pressed);
-        if (err) {
-            printk("Bluetooth init failed (err %d)\n", err);
-        } 
 
+        adv_param =  (struct bt_le_adv_param)BT_LE_ADV_PARAM_INIT(BT_LE_ADV_OPT_USE_IDENTITY | BT_LE_ADV_OPT_USE_TX_POWER|BT_LE_ADV_OPT_SCANNABLE|BT_LE_ADV_OPT_NOTIFY_SCAN_REQ ,
+                                                        current_min_interval,
+                                                        current_max_interval,
+                                                        NULL); 
+
+        // Submit work to start advertising
+        k_work_submit(&start_advertising_work);
+         
         printk("Interval decreased: MIN=%d, MAX=%d\n", current_min_interval, current_max_interval);
     } else { 
         printk("Minimum interval reached. No further decrease allowed.\n");
@@ -214,7 +213,8 @@ void button1_pressed(const struct device *dev, struct gpio_callback *cb, uint32_
 void button2_pressed(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
 {   
     if (current_max_interval < MAX_INTERVAL_LIMIT) { //current_min_interval <= 0x0030
-        bt_disable();
+
+        tx_on = false;
 
         // Increase
         current_min_interval = current_min_interval * INCREASE_PERCENTAGE;
@@ -225,11 +225,16 @@ void button2_pressed(const struct device *dev, struct gpio_callback *cb, uint32_
             current_max_interval = MAX_INTERVAL_LIMIT;
             current_min_interval = MAX_INTERVAL_LIMIT*0.8;
         }
-        tx_on = false;
-        int err = bt_enable(bt_ready_button_pressed);
-        if (err) {
-            printk("Bluetooth init failed (err %d)\n", err);
-        }
+
+        adv_param =  (struct bt_le_adv_param)BT_LE_ADV_PARAM_INIT(BT_LE_ADV_OPT_USE_IDENTITY | BT_LE_ADV_OPT_USE_TX_POWER|BT_LE_ADV_OPT_SCANNABLE|BT_LE_ADV_OPT_NOTIFY_SCAN_REQ ,
+                                                        current_min_interval,
+                                                        current_max_interval,
+                                                        NULL); 
+
+        // Submit work to start advertising
+        k_work_submit(&start_advertising_work);
+         
+
         printk("Interval increased: MIN=%d, MAX=%d\n", current_min_interval, current_max_interval);
     }else { 
         printk("Maximum interval reached. No further increase allowed.\n");
@@ -239,14 +244,18 @@ void button2_pressed(const struct device *dev, struct gpio_callback *cb, uint32_
 void button3_pressed(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
 {   
     if (TX_ID > 0) {
-        bt_disable();
+         tx_on = true;
          TX_ID = TX_ID - 1;     
-        printk("Beacon started SLOW DOWN TX \n");
-        tx_on = true;
-        int err = bt_enable(bt_ready_button_pressed);
-        if (err) {
-            printk("Bluetooth init failed (err %d)\n", err);
-        }
+        printk("Beacon started SLOW DOWN TX \n"); 
+
+        struct bt_le_adv_param adv_param = BT_LE_ADV_PARAM_INIT(BT_LE_ADV_OPT_USE_IDENTITY | BT_LE_ADV_OPT_USE_TX_POWER|BT_LE_ADV_OPT_SCANNABLE|BT_LE_ADV_OPT_NOTIFY_SCAN_REQ ,
+                                                        current_min_interval,
+                                                        current_max_interval,
+                                                        NULL); 
+
+        // Submit work to start advertising
+        k_work_submit(&start_advertising_work);
+ 
     }else{ 
         printk("Maximum Tx reached. No further increase allowed.\n");
     }   
@@ -255,26 +264,20 @@ void button3_pressed(const struct device *dev, struct gpio_callback *cb, uint32_
 void button4_pressed(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
 {   
     if (TX_ID < 7) {
-        bt_disable();
+        tx_on = true;    
         TX_ID = TX_ID + 1;     
         printk("Beacon started SPEED UP TX \n");
-        tx_on = true;
-        int err = bt_enable(bt_ready_button_pressed);
-        if (err) {
-            printk("Bluetooth init failed (err %d)\n", err);
-        }
+        struct bt_le_adv_param adv_param = BT_LE_ADV_PARAM_INIT(BT_LE_ADV_OPT_USE_IDENTITY | BT_LE_ADV_OPT_USE_TX_POWER|BT_LE_ADV_OPT_SCANNABLE|BT_LE_ADV_OPT_NOTIFY_SCAN_REQ ,
+                                                        current_min_interval,
+                                                        current_max_interval,
+                                                        NULL); 
+
+        // Submit work to start advertising
+        k_work_submit(&start_advertising_work);
+
     }else{ 
         printk("Minimum Tx reached. No further decrease allowed.\n");
     }   
-}
-
-/* Timer handler that prints a message at the current interval */
-void interval_timer_handler(struct k_timer *dummy)
-{
-    if (button_pressed) {
-        printk("Interval timer triggered!\n");
-        button_pressed = false;  // Reset the flag after printing the message
-    }
 }
 
 /* Bluetooth ready callback */
@@ -292,7 +295,7 @@ static void bt_ready(int err)
     printk("Bluetooth initialized\n");
 
    
-    struct bt_le_adv_param adv_param = BT_LE_ADV_PARAM_INIT(BT_LE_ADV_OPT_USE_IDENTITY | BT_LE_ADV_OPT_USE_TX_POWER,
+    struct bt_le_adv_param adv_param_new = BT_LE_ADV_PARAM_INIT(BT_LE_ADV_OPT_USE_IDENTITY | BT_LE_ADV_OPT_USE_TX_POWER|BT_LE_ADV_OPT_SCANNABLE|BT_LE_ADV_OPT_NOTIFY_SCAN_REQ ,
                                                         current_min_interval,
                                                         current_max_interval,
                                                         NULL); 
@@ -300,7 +303,7 @@ static void bt_ready(int err)
 
     /* Start advertising */ 
 	//set-1 default//
-    err = bt_le_adv_start(&adv_param, ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
+    err = bt_le_adv_start(&adv_param_new, ad, ARRAY_SIZE(ad), NULL, 0); //set scan respone data to NULL 
     if (err) {
         printk("Advertising failed to start (err %d)\n", err);
         return;
@@ -363,8 +366,8 @@ static void bt_ready(int err)
     printk("Button 3 to INCREASE TX\n");
     printk("Button 4 to DECREASE TX\n");  
      
-    PRINT_TX(); 
-    SET_TX(TX_ID);
+    print_tx(); 
+    set_tx(TX_ID);
 }
 
 int main(void)
