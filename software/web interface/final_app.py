@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from super_gradients.training import models
+# from super_gradients.training import models
 import cv2
 import numpy as np
 import os
@@ -8,6 +8,7 @@ import subprocess
 import logging
 import shutil
 from predict_walls.UNet_Pytorch_Customdataset.predict import predict_wall_mask
+from scripts.navigation import Indoor_Navigation
 
 from ultralytics import YOLO
 
@@ -16,31 +17,24 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)  
 
-# Global variable for the base path
-BASE_PATH = "/home/dimitris/projects/hipeac"
+# Dictionary to store the base path for each user
+USER_BASE_PATHS = {
+    'dimitris': '/home/dimitris/projects/hipeac',
+    'spyros': '/home/spyros/Workspace',
+}
+user_id = os.getlogin()
+BASE_PATH = USER_BASE_PATHS.get(user_id, '/default/path')
 
-DEVICE = 'cpu'
-MODEL_ARCH = "yolo_nas_m"
-classes = ['bathroom', 'bathtub', 'door', 'en_suite', 'kitchen', 'window']
-
-# Updated paths using BASE_PATH
-checkpoint_path = os.path.join(BASE_PATH, "Indoor-Navigation/software/web interface/models/average_model.pth")
-
-best_model = models.get(
-    MODEL_ARCH,
-    num_classes=len(classes),
-    checkpoint_path=checkpoint_path
-).to(DEVICE)
 
 def process_predictions(model_result):
 
     label_names = {
-        2: "door",  
+        2: "door",
     }
 
-    bboxes = model_result.prediction.bboxes_xyxy.tolist() 
-    confidence = model_result.prediction.confidence.tolist() 
-    labels = model_result.prediction.labels.tolist() 
+    bboxes = model_result.prediction.bboxes_xyxy.tolist()
+    confidence = model_result.prediction.confidence.tolist()
+    labels = model_result.prediction.labels.tolist()
 
     filtered_bboxes = [bbox for bbox, label in zip(bboxes, labels) if label == 2]
     filtered_confidence = [conf for conf, label in zip(confidence, labels) if label == 2]
@@ -50,9 +44,9 @@ def process_predictions(model_result):
         {
             "x": bbox[0],  
             "y": bbox[1],  
-            "width": bbox[2] - bbox[0],  
-            "height": bbox[3] - bbox[1],  
-            "label": label_names.get(label, "unknown") 
+            "width": bbox[2] - bbox[0],
+            "height": bbox[3] - bbox[1],
+            "label": label_names.get(label, "unknown")
         }
         for bbox, label in zip(filtered_bboxes, filtered_labels)
     ]
@@ -70,10 +64,10 @@ def process_predictions_yolo11(boxes):
     #boxes[0].xyxy.tolist()[0]
     formatted_bboxes = [
         {
-            "x": box.xyxy.tolist()[0][0],  
-            "y": box.xyxy.tolist()[0][1],  
-            "width": box.xyxy.tolist()[0][2] - box.xyxy.tolist()[0][0],  
-            "height": box.xyxy.tolist()[0][3] - box.xyxy.tolist()[0][1],  
+            "x": box.xyxy.tolist()[0][0],
+            "y": box.xyxy.tolist()[0][1],
+            "width": box.xyxy.tolist()[0][2] - box.xyxy.tolist()[0][0],
+            "height": box.xyxy.tolist()[0][3] - box.xyxy.tolist()[0][1],
             "label": 'door'
         }
         for box in boxes
@@ -102,33 +96,6 @@ def convert_txt_to_json(txt_file_path, image_width, image_height):
                 data.append({"points": point_objects, "label": "Uknown"})
     return jsonify(data)
 
-@app.route('/predict_doors', methods=['POST'])
-def predict_doors():
-    try:
-        data = request.get_json()
-
-        if 'image' not in data:
-            return jsonify({"error": "No image data provided"}), 400
-        
-        base64_string = data['image']
-        
-        if base64_string.startswith('data:image'):
-            base64_string = base64_string.split(',')[1]
-
-        image_data = base64.b64decode(base64_string)
-
-        image_array = np.frombuffer(image_data, dtype=np.uint8)
-        image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
-
-        if image is None:
-            return jsonify({"error": "Invalid image format"}), 400
-
-        model_result = best_model.predict(image, conf=0.25)
-
-        return process_predictions(model_result)
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 @app.route('/predict_rooms', methods=['POST'])
 def predict_rooms():
@@ -242,15 +209,18 @@ def post_user_feedback():
     data = request.get_json()
     doors = data['doors']
     rooms = data['rooms']
-    mask = predict_wall_mask("./assets/temp_images/temp_image_rooms.jpg", "./predict_walls/UNet_Pytorch_Customdataset/outputs/image.jpg", 25, "./models/checkpoint_epoch500.pth", scale=2)
+    pixels_to_cm = float(data['distancePerPixel'])*100.0
 
-    app.logger.info(mask)
-    app.logger.info(doors)
-    app.logger.info(rooms)
+    image_path = os.path.join(BASE_PATH, "Indoor-Navigation/software/web interface/assets/temp_images/temp_image_rooms.jpg")
 
-    # TODO SPYROS
+    navigation = Indoor_Navigation(image_path)
+    navigation.calibrate(pixels_to_cm)
+    grid_size = int(navigation.cm_to_pixels(40, scale=4))
+    navigation.process_image(grid_size=grid_size, doors=doors, rooms=rooms)
+
+    # navigation.save('navigation-instances/admin_ui_test.pkl')
     
-    return jsonify({'graph' : {}})
+    return jsonify({"graph" : navigation.get_json()})
 
 
 
