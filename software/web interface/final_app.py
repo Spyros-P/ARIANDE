@@ -250,7 +250,7 @@ def post_user_feedback():
 
     # TODO SPYROS
     
-    return jsonify({'graph' : {}})
+    return jsonify({'graph' : {"Floors": 1}})
 
 
 

@@ -176,29 +176,8 @@ const AnnotateFloorPlan = () => {
   };
 
   const handleSubmitToStrapi = async () => {
+    let graph = {};
     setIsLoadingSubmit(true);
-
-    setUploadingStatus("Constructing graph...");
-    const graph_response = await fetch(
-      "http://127.0.0.1:5000/post_user_feedback",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          doors: detectedBoundingBoxes.concat(currentBoundingBoxes),
-          rooms: roomData,
-        }),
-      }
-    );
-
-    if (graph_response.ok) {
-      const graph = await graph_response.json();
-      console.log("Server Response : ", graph);
-    } else {
-      console.error("Error from server:", await graph_response.text());
-    }
 
     try {
       setUploadingStatus("Uploading building image...");
@@ -209,6 +188,29 @@ const AnnotateFloorPlan = () => {
         currentFileName
       );
 
+      setUploadingStatus("Constructing graph...");
+      const graph_response = await fetch(
+        "http://127.0.0.1:5000/post_user_feedback",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            doors: detectedBoundingBoxes.concat(currentBoundingBoxes),
+            rooms: roomData,
+            distancePerPixel: distancePerPixel,
+          }),
+        }
+      );
+
+      if (graph_response.ok) {
+        graph = await graph_response.json();
+        console.log("Server Response : ", graph.graph);
+      } else {
+        console.error("Error from server:", await graph_response.text());
+      }
+
       const response = await axios.post(
         `${process.env.REACT_APP_STRAPI_URL}/api/buildings?status=draft`,
         createBuildingReqBody(
@@ -216,7 +218,8 @@ const AnnotateFloorPlan = () => {
           floorPlanImageID,
           buildingImageID,
           lat,
-          lon
+          lon,
+          graph.graph
         ),
         {
           headers: {
@@ -422,6 +425,7 @@ const AnnotateFloorPlan = () => {
                     }}
                   >
                     <input
+                      value={buildingName}
                       type="text"
                       placeholder={"Enter building's name"}
                       style={{
@@ -449,6 +453,7 @@ const AnnotateFloorPlan = () => {
                       }}
                     >
                       <input
+                        value={lat}
                         type="number"
                         placeholder={"lat"}
                         id="floatInput"
@@ -460,6 +465,7 @@ const AnnotateFloorPlan = () => {
                         onChange={handleLat}
                       />{" "}
                       <input
+                        value={lon}
                         type="number"
                         step="0.01"
                         id="floatInput"

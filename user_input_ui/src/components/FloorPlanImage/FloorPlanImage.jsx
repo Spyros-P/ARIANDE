@@ -370,7 +370,7 @@ const FloorPlanImage = ({
       detectedBoundingBoxes.concat(currentBoundingBoxes).forEach((box) => {
         ctx.beginPath();
         ctx.rect(box.x, box.y, box.width, box.height);
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 2;
         ctx.strokeStyle = "red";
 
         if (
@@ -383,7 +383,7 @@ const FloorPlanImage = ({
           if (!isPointInBox({ x: cursor.x, y: cursor.y }, highlightedBox))
             zoomToBox(highlightedBox);
           ctx.strokeStyle = "purple"; // Highlight the box with a blue color
-          ctx.lineWidth = 4; // Make the border thicker
+          ctx.lineWidth = 3; // Make the border thicker
         } else {
           ctx.strokeStyle = "rgb(85, 190, 162)"; // Default color for other boxes
         }
@@ -411,7 +411,7 @@ const FloorPlanImage = ({
         ctx.beginPath();
         ctx.moveTo(currentLine.startX, currentLine.startY); // Starting point of the line
         ctx.lineTo(currentLine.endX, currentLine.endY); // Ending point of the line
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 2;
         ctx.strokeStyle = "red"; // Green for the active line
         ctx.stroke();
       }

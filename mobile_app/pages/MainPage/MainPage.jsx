@@ -16,7 +16,7 @@ import { useSQLiteContext } from "expo-sqlite";
 import { faBullseye } from "@fortawesome/free-solid-svg-icons";
 import { fetchFloorPlanByID } from "../../db/db_queries";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
-import { WeightedGraph } from "../../utils/dijkstra";
+import { WeightedGraph } from "../../utils/aStar";
 import { Svg, Line, Path, Defs, LinearGradient, Stop } from "react-native-svg";
 import {
   computeLabels,
@@ -116,7 +116,10 @@ export function MainPage({ provideYourScreenName, route }) {
       destination,
       floorPlan.graph.Graph
     );
-    let results = graph.Dijkstra(currentPositionNode, destinationNode);
+    // let results = graph.Dijkstra(currentPositionNode, destinationNode);
+    // console.log("NODES", currentPositionNode, destinationNode);
+    let results = graph.AStar(currentPositionNode, destinationNode);
+
     setDestinationPixels(
       pixelsFromNodeID(destinationNode, floorPlan.graph.Graph)
     );
