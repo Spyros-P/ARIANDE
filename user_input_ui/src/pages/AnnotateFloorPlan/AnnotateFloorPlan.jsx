@@ -38,7 +38,7 @@ const AnnotateFloorPlan = () => {
     height: 0,
     depth: 3,
   });
-  const [showDetails, setShowDetails] = useState(false);
+  const [showDetails, setShowDetails] = useState(true);
   const [showOtherFields, setShowOtherFields] = useState(false);
 
   const [isLoadingInference, setIsLoadingInference] = useState(false);
@@ -55,6 +55,8 @@ const AnnotateFloorPlan = () => {
   const [lat, setLat] = useState(null);
   const [lon, setLon] = useState(null);
   const [doorDeleted, setDoorDeleted] = useState(false);
+  const [distancePerPixel, setDistancePerPixel] = useState(0);
+  const [uploadingStatus, setUploadingStatus] = useState("");
 
   const { width, height } = useContext(WindowSizeContext);
 
@@ -176,6 +178,7 @@ const AnnotateFloorPlan = () => {
   const handleSubmitToStrapi = async () => {
     setIsLoadingSubmit(true);
 
+    setUploadingStatus("Constructing graph...");
     const graph_response = await fetch(
       "http://127.0.0.1:5000/post_user_feedback",
       {
@@ -198,11 +201,14 @@ const AnnotateFloorPlan = () => {
     }
 
     try {
+      setUploadingStatus("Uploading building image...");
       let buildingImageID = await uploadImage(buildingImgSrc, buildingName);
+      setUploadingStatus("Uploading floor plan image...");
       let floorPlanImageID = await uploadImage(
         floorPlanImageSrc,
         currentFileName
       );
+
       const response = await axios.post(
         `${process.env.REACT_APP_STRAPI_URL}/api/buildings?status=draft`,
         createBuildingReqBody(
@@ -313,6 +319,10 @@ const AnnotateFloorPlan = () => {
                       title={"My Bounding Boxes"}
                       onSelectDelete={onSelectDelete}
                     ></CardList>
+                    <p style={{ color: "white", fontSize: "18px" }}>
+                      Distance per 1000 pixel:{" "}
+                      {(1000 * distancePerPixel).toFixed(2)} m.
+                    </p>
                   </>
                 )}
               {(!showOtherFields || !currentFileName) && (
@@ -360,6 +370,8 @@ const AnnotateFloorPlan = () => {
               setDoorDeleted={setDoorDeleted}
               doorDeleted={doorDeleted}
               setRoomData={setRoomData}
+              setDistancePerPixel={setDistancePerPixel}
+              distancePerPixel={distancePerPixel}
             />
             {!isLoadingInference && showOtherFields && currentFileName && (
               <div
@@ -509,7 +521,7 @@ const AnnotateFloorPlan = () => {
                     fontSize: 30,
                   }}
                 >
-                  Uploading...
+                  {uploadingStatus}
                 </p>
               )}
               {isSubmitted && (

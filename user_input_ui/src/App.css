@@ -106,7 +106,7 @@ label {
 
 /* Dropdown and text input styles */
 select,
-input[type="text"] {
+input {
   width: 70%;
   padding: 8px;
   margin-top: 8px;
@@ -117,7 +117,7 @@ input[type="text"] {
 }
 
 select:focus,
-input[type="text"]:focus {
+input:focus {
   outline: none;
 }
 

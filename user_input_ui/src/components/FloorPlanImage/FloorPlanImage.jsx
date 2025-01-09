@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useContext } from "react";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { Audio } from "react-loader-spinner";
-
+import { Tooltip, TooltipProvider } from "react-tooltip";
 import {
   ImageContainer,
   Rectangle,
@@ -16,7 +16,9 @@ import { drawLightPolygon } from "../../utils/drawPolygon";
 import FileInputComponent from "../FileInput/FileInput.jsx";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faCrosshairs } from "@fortawesome/free-solid-svg-icons";
 import { WindowSizeContext } from "../../context/WindowSize/WindowSize.jsx";
+import Modal from "../Modal/Modal.jsx";
 
 const validFileTypes = ["png", "jpeg", "jpg"];
 
@@ -71,21 +73,29 @@ const FloorPlanImage = ({
   setRoomData,
   doorDeleted,
   setDoorDeleted,
+  setDistancePerPixel,
+  distancePerPixel,
 }) => {
   const [isDrawing, setIsDrawing] = useState(false); // Track if the user is currently drawing a box
+  const [isDrawingLine, setIsDrawingLine] = useState(false);
   const [startPoint, setStartPoint] = useState({ x: 0, y: 0 }); // Starting coordinates of the box
   const [currentBox, setCurrentBox] = useState(null); // Current bounding box being drawn
+  const [currentLine, setCurrentLine] = useState(null);
   const [ctrlPressed, setCtrlPressed] = useState(false); // Check if the Ctrl key is pressed
   const [imageCursor, setImageCursor] = useState("grab"); // Cursor state for different interactions
   const [imageIsGrabbed, setImageIsGrabbed] = useState(false); // Image grab state
   const [roomToLabel, setRoomToLabel] = useState(null); // The room to label
   const [showModal, setShowModal] = useState(false); // Whether to show the modal
+  const [showLineModal, setShowLineModal] = useState(false);
   const [selectedLabel, setSelectedLabel] = useState(""); // Selected label from the dropdown
   const [customLabel, setCustomLabel] = useState(""); // Custom label text
   const [boxToLabel, setBoxToLabel] = useState(null); // The bounding box that needs labeling
   const [fileType, setFileType] = useState(null);
   const [fileTypeError, setFileTypeError] = useState("");
   const [cursor, setCursor] = useState({ x: 0, y: 0 });
+  const [shiftPressed, setShiftPressed] = useState(false);
+  const [tempDistance, setTempDistance] = useState(0);
+  const [pixelDistance, setPixelDistance] = useState(0);
   // const [currentCsvRecords, setCurrentCsvRecords] = useState([]);
   // const [currentCsvRecord, setCurrentCsvRecord] = useState([]);
   const [highlightedRoom, setHighlightedRoom] = useState(null); // Room to be highlighted
@@ -257,6 +267,9 @@ const FloorPlanImage = ({
       ) {
         setCtrlPressed(true);
       }
+      if (e.key === "Shift") {
+        setShiftPressed(true);
+      }
     };
     const handleKeyUp = (e) => {
       if (
@@ -265,6 +278,9 @@ const FloorPlanImage = ({
         e.key === "ControlRight"
       ) {
         setCtrlPressed(false);
+      }
+      if (e.key === "Shift") {
+        setShiftPressed(false);
       }
     };
 
@@ -377,7 +393,7 @@ const FloorPlanImage = ({
       });
 
       // Draw the current bounding box while the user is drawing
-      if (isDrawing && currentBox) {
+      if (isDrawing && currentBox && ctrlPressed) {
         ctx.beginPath();
         ctx.rect(
           currentBox.x,
@@ -389,12 +405,22 @@ const FloorPlanImage = ({
         ctx.strokeStyle = "green"; // Green for the active bounding box
         ctx.stroke();
       }
+      if (currentLine) {
+        ctx.beginPath();
+        ctx.moveTo(currentLine.startX, currentLine.startY); // Starting point of the line
+        ctx.lineTo(currentLine.endX, currentLine.endY); // Ending point of the line
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "red"; // Green for the active line
+        ctx.stroke();
+      }
     }
   }, [
     currentBoundingBoxes,
     detectedBoundingBoxes,
     isDrawing,
+    isDrawingLine,
     currentBox,
+    currentLine,
     highlightedBox,
     imageSrc, // Redraw when image is uploaded
   ]);
@@ -409,16 +435,42 @@ const FloorPlanImage = ({
 
   // Mouse down event to start drawing the bounding box
   const handleMouseDown = (e) => {
-    if (!ctrlPressed) return; // Only allow drawing if Ctrl is pressed
+    if (!ctrlPressed && !shiftPressed) return; // Only allow drawing if Ctrl is pressed
     const { offsetX, offsetY } = e.nativeEvent;
-    setStartPoint({ x: offsetX, y: offsetY }); // Set the starting point of the box
-    setIsDrawing(true); // Indicate that the user is drawing
-    setCurrentBox({
-      x: offsetX,
-      y: offsetY,
-      width: 0,
-      height: 0,
-    }); // Initialize the current box
+    setStartPoint({ x: offsetX, y: offsetY });
+    if (ctrlPressed) {
+      // Set the starting point of the box
+      setIsDrawing(true); // Indicate that the user is drawing
+      setCurrentBox({
+        x: offsetX,
+        y: offsetY,
+        width: 0,
+        height: 0,
+      });
+    } else if (shiftPressed) {
+      setIsDrawingLine(true); // Indicate that the user is drawing
+      setCurrentLine({
+        startX: offsetX,
+        startY: offsetY,
+        endX: offsetX,
+        endY: offsetY,
+      });
+    }
+  };
+
+  const handleCancelLineModal = () => {
+    setShowLineModal(false);
+    setCurrentLine(null);
+  };
+
+  const handleSubmitDistancePerPixel = () => {
+    setDistancePerPixel(tempDistance / pixelDistance);
+    setCurrentLine(null);
+    setShowLineModal(false);
+  };
+
+  const handleChangeDistancePerPixel = (e) => {
+    setTempDistance(e.target.value);
   };
 
   // Mouse move event to update the current bounding box while dragging
@@ -450,15 +502,24 @@ const FloorPlanImage = ({
       highlightRoom(null);
     }, [1]);
 
-    if (!isDrawing || !ctrlPressed) return; // Only update if the user is drawing
+    if ((!isDrawing && !isDrawingLine) || (!ctrlPressed && !shiftPressed))
+      return; // Only update if the user is drawing
 
     // Update the current box dimensions
-    setCurrentBox({
-      x: startPoint.x,
-      y: startPoint.y,
-      width: width,
-      height: height,
-    });
+    ctrlPressed &&
+      setCurrentBox({
+        x: startPoint.x,
+        y: startPoint.y,
+        width: width,
+        height: height,
+      });
+    shiftPressed &&
+      setCurrentLine({
+        startX: startPoint.x,
+        startY: startPoint.y,
+        endX: offsetX,
+        endY: offsetY,
+      });
     // setCurrentCsvRecord({
     //   filename: fileName,
     //   width: 500,
@@ -479,15 +540,30 @@ const FloorPlanImage = ({
 
   // Mouse up event to finalize the bounding box and trigger the modal
   const handleMouseUp = () => {
-    if (!isDrawing) return; // Only add the box if drawing is in progress
+    if (!isDrawing && !isDrawingLine) return; // Only add the box if drawing is in progress
     // console.log(currentCsvRecords);
     // setCurrentCsvRecords([...currentCsvRecords, currentCsvRecord]);
-    setIsDrawing(false); // End drawing
-    if (currentBox) {
-      const newBox = { ...currentBox, label: "door" };
-      setCurrentBoundingBoxes((prevBoxes) => [...prevBoxes, newBox]); // Add new box to the list
-      setBoxToLabel(newBox); // Set the box to label
-      // setShowModal(true); // Show the modal for labeling
+    if (isDrawing) {
+      setIsDrawing(false); // End drawing
+      if (currentBox) {
+        const newBox = { ...currentBox, label: "door" };
+        setCurrentBoundingBoxes((prevBoxes) => [...prevBoxes, newBox]); // Add new box to the list
+        setBoxToLabel(newBox); // Set the box to label
+        // setShowModal(true); // Show the modal for labeling
+      }
+    }
+    if (isDrawingLine) {
+      setIsDrawingLine(false); // End drawing
+      console.log("CUR LINE", currentLine);
+      if (currentLine) {
+        setPixelDistance(
+          Math.sqrt(
+            (currentLine.startX - currentLine.endX) ** 2 +
+              (currentLine.startY - currentLine.endY) ** 2
+          )
+        );
+        setShowLineModal(true);
+      }
     }
   };
 
@@ -551,7 +627,11 @@ const FloorPlanImage = ({
     } else {
       setImageCursor("grab");
     }
-  }, [imageIsGrabbed, ctrlPressed]);
+
+    if (shiftPressed) {
+      setImageCursor("cell");
+    }
+  }, [imageIsGrabbed, ctrlPressed, shiftPressed]);
 
   console.log(Math.max(500, 0.35 * windowWidth));
 
@@ -623,7 +703,7 @@ const FloorPlanImage = ({
             initialScale={1.2}
             initialPositionX={0}
             initialPositionY={0}
-            disabled={ctrlPressed}
+            disabled={ctrlPressed || shiftPressed}
             limitToBounds={false}
           >
             <ImageContainer
@@ -684,43 +764,34 @@ const FloorPlanImage = ({
 
       {/* Modal for labeling the bounding box */}
       {showModal && (
-        <div className="modal">
-          <div className="modal-content">
-            <h2 style={{ fontSize: "16px", marginBottom: "20px" }}>
-              Label the {roomToLabel.label}
-            </h2>
-            <label>Choose Label:</label>
-            <select value={selectedLabel} onChange={handleLabelChange}>
-              <option value="">Select a label</option>
-              <option value="room">Room</option>
-              <option value="door">Door</option>
-              <option value="corridor">Corridor</option>
-            </select>
-            <label>Custom Label (Optional):</label>
-            <input
-              type="text"
-              value={customLabel}
-              onChange={handleCustomLabelChange}
-              placeholder="Enter custom label"
-            />
-            <div className="modal-buttons">
-              <button className="cancel" onClick={handleModalCancel}>
-                Cancel
-              </button>
-              <button
-                disabled={!selectedLabel && !customLabel}
-                onClick={handleModalOK}
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        </div>
+        <Modal
+          forDistancePerPixel={false}
+          forRooms={true}
+          disabledOK={!selectedLabel && !customLabel}
+          handleCancel={handleModalCancel}
+          handleSubmit={handleModalOK}
+          title={`Label the ${roomToLabel.label}`}
+          handleInputValue={handleCustomLabelChange}
+          inputValue={customLabel}
+        />
+      )}
+      {showLineModal && (
+        <Modal
+          forDistancePerPixel={true}
+          forRooms={false}
+          disabledOK={tempDistance === 0 || !tempDistance || tempDistance < 0}
+          handleCancel={handleCancelLineModal}
+          handleSubmit={handleSubmitDistancePerPixel}
+          title={`Add the distance (in meters)`}
+          handleInputValue={handleChangeDistancePerPixel}
+          inputValue={tempDistance}
+        />
       )}
       {imageSrc && !isLoadingInference && (
         <div style={buttonsContainer}>
           {" "}
           <button
+            id="tooltip-button4"
             className="cancel"
             onClick={() => {
               // setImageSrc(null);
@@ -736,11 +807,34 @@ const FloorPlanImage = ({
               window.location.reload();
             }}
           >
-            Back
+            Back <Tooltip anchorId="tooltip-button4" content="Go back" />
           </button>
-          <button onClick={generateCSV}>Download CSV</button>
-          <button className="yellow" onClick={generateXML}>
+          <button id="tooltip-button3" onClick={generateCSV}>
+            Download CSV{" "}
+            <Tooltip
+              anchorId="tooltip-button3"
+              content="Extract annotations in CSV format"
+            />
+          </button>
+          <button id="tooltip-button2" className="yellow" onClick={generateXML}>
             Download XML
+            <Tooltip
+              anchorId="tooltip-button2"
+              content="Extract annotations in XML format"
+            />
+          </button>
+          <button
+            style={{ background: "none", transform: "scale(1.5)" }}
+            onClick={() =>
+              zoomToBox({
+                x: imageDimensions.width / 2,
+                y: imageDimensions.height / 2,
+                width: 5,
+                height: 5,
+              })
+            }
+          >
+            <FontAwesomeIcon icon={faCrosshairs} />
           </button>
         </div>
       )}
