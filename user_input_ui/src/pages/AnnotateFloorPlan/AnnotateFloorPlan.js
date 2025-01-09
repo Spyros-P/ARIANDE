@@ -38,7 +38,7 @@ export const cardContainer = {
   flexDirection: "column",
   justifyContent: "center",
   gap: 20,
-  marginBottom: 100,
+  marginBottom: 25,
 };
 
 export const showDetailsButton = {

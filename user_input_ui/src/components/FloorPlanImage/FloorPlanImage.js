@@ -38,7 +38,7 @@ export const imageContainer = {
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
-  flex: 1,
+  flex: 1.2,
 };
 
 export const errorMessage = {

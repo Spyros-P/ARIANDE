@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   TouchableWithoutFeedback,
@@ -16,7 +16,7 @@ import { useSQLiteContext } from "expo-sqlite";
 import { faBullseye } from "@fortawesome/free-solid-svg-icons";
 import { fetchFloorPlanByID } from "../../db/db_queries";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
-import { WeightedGraph } from "../../utils/dijkstra";
+import { WeightedGraph } from "../../utils/aStar";
 import { Svg, Line, Path, Defs, LinearGradient, Stop } from "react-native-svg";
 import {
   computeLabels,
@@ -34,7 +34,7 @@ export function MainPage({ provideYourScreenName, route }) {
     height: 0,
     graph: [],
   });
-  const [currentPosition, setCurrentPosition] = useState({ x: 200, y: 200 });
+  const [currentPosition, setCurrentPosition] = useState({ x: 580, y: 600 });
   const [zoomScale, setZoomScale] = useState(1);
   const [isFloorButtonsDisabled, setIsFloorButtonsDisabled] = useState(true);
   const [rooms, setRooms] = useState([]);
@@ -79,6 +79,22 @@ export function MainPage({ provideYourScreenName, route }) {
       }
     }, [route.params?.CardId])
   );
+
+  useEffect(() => {
+    if (floorPlan.graph?.Graph) {
+      console.log(
+        "CURRENT",
+        currentPosition,
+        nearestNodeFromCurrentLocation(currentPosition, floorPlan.graph.Graph)
+          .nearestNodeCoords
+      );
+      setCurrentPosition(
+        nearestNodeFromCurrentLocation(currentPosition, floorPlan.graph.Graph)
+          .nearestNodeCoords
+      );
+    }
+  }, [floorPlan.graph?.Graph]);
+
   const doSomething = () => {
     setDropdownVisible(false);
     Keyboard.dismiss();
@@ -116,7 +132,10 @@ export function MainPage({ provideYourScreenName, route }) {
       destination,
       floorPlan.graph.Graph
     );
-    let results = graph.Dijkstra(currentPositionNode, destinationNode);
+    // let results = graph.Dijkstra(currentPositionNode, destinationNode);
+    // console.log("NODES", currentPositionNode, destinationNode);
+    let results = graph.AStar(currentPositionNode, destinationNode);
+
     setDestinationPixels(
       pixelsFromNodeID(destinationNode, floorPlan.graph.Graph)
     );

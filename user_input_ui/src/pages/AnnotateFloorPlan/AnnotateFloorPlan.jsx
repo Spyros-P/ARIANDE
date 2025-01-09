@@ -38,7 +38,7 @@ const AnnotateFloorPlan = () => {
     height: 0,
     depth: 3,
   });
-  const [showDetails, setShowDetails] = useState(false);
+  const [showDetails, setShowDetails] = useState(true);
   const [showOtherFields, setShowOtherFields] = useState(false);
 
   const [isLoadingInference, setIsLoadingInference] = useState(false);
@@ -54,6 +54,9 @@ const AnnotateFloorPlan = () => {
   const [inferenceError, setInferenceError] = useState("");
   const [lat, setLat] = useState(null);
   const [lon, setLon] = useState(null);
+  const [doorDeleted, setDoorDeleted] = useState(false);
+  const [distancePerPixel, setDistancePerPixel] = useState(0);
+  const [uploadingStatus, setUploadingStatus] = useState("");
 
   const { width, height } = useContext(WindowSizeContext);
 
@@ -80,6 +83,7 @@ const AnnotateFloorPlan = () => {
             box.x !== x && box.y !== y && box.width !== w && box.height !== h
         )
       );
+    setDoorDeleted(true);
   };
 
   const onSelectDelete = (x, y, w, h) => {
@@ -172,32 +176,41 @@ const AnnotateFloorPlan = () => {
   };
 
   const handleSubmitToStrapi = async () => {
+    let graph = {};
     setIsLoadingSubmit(true);
 
-    const graph_response = await fetch(
-      "http://127.0.0.1:5000/post_user_feedback",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({doors : detectedBoundingBoxes.concat(currentBoundingBoxes), rooms : roomData}), 
-      }
-    );
-
-    if (graph_response.ok) {
-      const graph = await graph_response.json();
-      console.log('Server Response : ', graph);
-    } else {
-      console.error("Error from server:", await graph_response.text());
-    }
-
     try {
+      setUploadingStatus("Uploading building image...");
       let buildingImageID = await uploadImage(buildingImgSrc, buildingName);
+      setUploadingStatus("Uploading floor plan image...");
       let floorPlanImageID = await uploadImage(
         floorPlanImageSrc,
         currentFileName
       );
+
+      setUploadingStatus("Constructing graph...");
+      const graph_response = await fetch(
+        "http://127.0.0.1:5000/post_user_feedback",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            doors: detectedBoundingBoxes.concat(currentBoundingBoxes),
+            rooms: roomData,
+            distancePerPixel: distancePerPixel,
+          }),
+        }
+      );
+
+      if (graph_response.ok) {
+        graph = await graph_response.json();
+        console.log("Server Response : ", graph.graph);
+      } else {
+        console.error("Error from server:", await graph_response.text());
+      }
+
       const response = await axios.post(
         `${process.env.REACT_APP_STRAPI_URL}/api/buildings?status=draft`,
         createBuildingReqBody(
@@ -205,7 +218,8 @@ const AnnotateFloorPlan = () => {
           floorPlanImageID,
           buildingImageID,
           lat,
-          lon
+          lon,
+          graph.graph
         ),
         {
           headers: {
@@ -227,7 +241,6 @@ const AnnotateFloorPlan = () => {
       }, 3000);
     }
   };
-
   return (
     // <CardList cards={[1, 2, 3]} title={"Model's Bounding Boxes"}></CardList>
     <div style={pageContainer}>
@@ -292,7 +305,9 @@ const AnnotateFloorPlan = () => {
                     {" "}
                     <CardList
                       size="medium"
-                      onDeleteCard={(x, y, w, h) => onDeleteCard(x, y, w, h, 1)}
+                      onDeleteCard={(x, y, w, h) => {
+                        onDeleteCard(x, y, w, h, 1);
+                      }}
                       setCurrentBoundingBoxes={setCurrentBoundingBoxes}
                       setDetectedBoundingBoxes={setDetectedBoundingBoxes}
                       cards={detectedBoundingBoxes}
@@ -306,6 +321,10 @@ const AnnotateFloorPlan = () => {
                       title={"My Bounding Boxes"}
                       onSelectDelete={onSelectDelete}
                     ></CardList>
+                    <p style={{ color: "white", fontSize: "18px" }}>
+                      Distance per 1000 pixel:{" "}
+                      {(1000 * distancePerPixel).toFixed(2)} m.
+                    </p>
                   </>
                 )}
               {(!showOtherFields || !currentFileName) && (
@@ -350,12 +369,15 @@ const AnnotateFloorPlan = () => {
               imageSrc={floorPlanImageSrc}
               setInferenceError={setInferenceError}
               roomData={roomData}
+              setDoorDeleted={setDoorDeleted}
+              doorDeleted={doorDeleted}
               setRoomData={setRoomData}
+              setDistancePerPixel={setDistancePerPixel}
+              distancePerPixel={distancePerPixel}
             />
             {!isLoadingInference && showOtherFields && currentFileName && (
               <div
                 style={{
-                  width: "600px",
                   display: "flex",
                   flex: 1,
                   flexDirection: "column",
@@ -403,6 +425,7 @@ const AnnotateFloorPlan = () => {
                     }}
                   >
                     <input
+                      value={buildingName}
                       type="text"
                       placeholder={"Enter building's name"}
                       style={{
@@ -430,6 +453,7 @@ const AnnotateFloorPlan = () => {
                       }}
                     >
                       <input
+                        value={lat}
                         type="number"
                         placeholder={"lat"}
                         id="floatInput"
@@ -441,6 +465,7 @@ const AnnotateFloorPlan = () => {
                         onChange={handleLat}
                       />{" "}
                       <input
+                        value={lon}
                         type="number"
                         step="0.01"
                         id="floatInput"
@@ -462,7 +487,9 @@ const AnnotateFloorPlan = () => {
                     buildingName.length === 0 ||
                     !buildingImgSrc ||
                     !lat ||
-                    !lon
+                    !lon ||
+                    !distancePerPixel ||
+                    distancePerPixel === 0
                   }
                   style={submitButton}
                   onClick={handleSubmitToStrapi}
@@ -501,7 +528,7 @@ const AnnotateFloorPlan = () => {
                     fontSize: 30,
                   }}
                 >
-                  Uploading...
+                  {uploadingStatus}
                 </p>
               )}
               {isSubmitted && (
