@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   TouchableWithoutFeedback,
@@ -34,7 +34,7 @@ export function MainPage({ provideYourScreenName, route }) {
     height: 0,
     graph: [],
   });
-  const [currentPosition, setCurrentPosition] = useState({ x: 200, y: 200 });
+  const [currentPosition, setCurrentPosition] = useState({ x: 580, y: 600 });
   const [zoomScale, setZoomScale] = useState(1);
   const [isFloorButtonsDisabled, setIsFloorButtonsDisabled] = useState(true);
   const [rooms, setRooms] = useState([]);
@@ -79,6 +79,22 @@ export function MainPage({ provideYourScreenName, route }) {
       }
     }, [route.params?.CardId])
   );
+
+  useEffect(() => {
+    if (floorPlan.graph?.Graph) {
+      console.log(
+        "CURRENT",
+        currentPosition,
+        nearestNodeFromCurrentLocation(currentPosition, floorPlan.graph.Graph)
+          .nearestNodeCoords
+      );
+      setCurrentPosition(
+        nearestNodeFromCurrentLocation(currentPosition, floorPlan.graph.Graph)
+          .nearestNodeCoords
+      );
+    }
+  }, [floorPlan.graph?.Graph]);
+
   const doSomething = () => {
     setDropdownVisible(false);
     Keyboard.dismiss();

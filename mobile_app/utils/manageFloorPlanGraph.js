@@ -23,6 +23,7 @@ function pixelDistance(pixel1, pixel2) {
 export function nearestNodeFromCurrentLocation(currentLocation, graph) {
   let nearestNode = "";
   let nearestNodeDistance = Infinity;
+  let nearestNodeCoords = { x: 0, y: 0 };
   graph.forEach((node) => {
     let dis = pixelDistance(currentLocation, {
       x: node.imageX,
@@ -30,10 +31,12 @@ export function nearestNodeFromCurrentLocation(currentLocation, graph) {
     });
     if (nearestNodeDistance > dis) {
       nearestNodeDistance = dis;
+      nearestNodeCoords.x = node.imageX;
+      nearestNodeCoords.y = node.imageY;
       nearestNode = node.id.toString();
     }
   });
-  return { nearestNode, nearestNodeDistance };
+  return { nearestNode, nearestNodeDistance, nearestNodeCoords };
 }
 
 export function pixelsFromNodeID(id, graph) {
