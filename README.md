@@ -11,7 +11,7 @@ The backend of the ARIADNE system is built using Python Flask. It is responsible
 #### Key Features:
 - **Door Detection**: Uses YOLOv8 with instance segmentation to identify and segment rooms.
 - **Room Detection**: Employs YOLO11 with bounding box detection to accurately detect doors.
-- **Wall Detection**: Utilizes Unet with semantic segmentation to map walls.
+- **Wall Detection**: Utilizes Computer Vision techniques to map walls. We have also implemented an alternative method for this purpose: a Unet model with semantic segmentation.
 
 By pinpointing the locations of doors and walls, the backend determines walkable spaces within the floor plan and constructs the aforementioned graph. This graph serves as the foundation for the navigation functionality.
 
