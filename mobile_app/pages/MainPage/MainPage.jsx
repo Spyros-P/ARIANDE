@@ -34,7 +34,7 @@ export function MainPage({ provideYourScreenName, route }) {
     height: 0,
     graph: [],
   });
-  const [currentPosition, setCurrentPosition] = useState({ x: 580, y: 600 });
+  const [currentPosition, setCurrentPosition] = useState({ x: 0, y: 0 });
   const [zoomScale, setZoomScale] = useState(1);
   const [isFloorButtonsDisabled, setIsFloorButtonsDisabled] = useState(true);
   const [rooms, setRooms] = useState([]);

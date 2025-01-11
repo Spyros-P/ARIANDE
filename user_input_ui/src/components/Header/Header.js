@@ -22,7 +22,7 @@ export const headerSectionSmall = {
   color: "white",
   justifyContent: "center",
   alignItems: "center",
-  gap: "10px",
+  gap: "20px",
 };
 
 export const logo = {

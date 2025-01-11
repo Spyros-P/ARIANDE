@@ -25,6 +25,7 @@ import FileInputComponent from "../../components/FileInput/FileInput.jsx";
 import ImageDisplay from "../../components/ShowImage/ShowImage.jsx";
 import { base64ToBlob } from "../../utils/base64ToBlob.js";
 import { createBuildingReqBody } from "../../utils/createBuildingReqBody.js";
+import { JWTContext } from "../../context/Auth/AuthContext.js";
 
 const validFileTypes = ["png", "jpeg", "jpg"];
 const AnnotateFloorPlan = () => {
@@ -59,6 +60,7 @@ const AnnotateFloorPlan = () => {
   const [uploadingStatus, setUploadingStatus] = useState("");
 
   const { width, height } = useContext(WindowSizeContext);
+  const { jwt } = useContext(JWTContext);
 
   const handleLat = (e) => {
     setLat(e.target.value);
@@ -167,7 +169,7 @@ const AnnotateFloorPlan = () => {
       formData,
       {
         headers: {
-          Authorization: `Bearer ${process.env.REACT_APP_API_KEY_STRAPI}`, // Add API Key here
+          Authorization: `Bearer ${jwt}`, // Add API Key here
         },
       }
     );
@@ -190,7 +192,7 @@ const AnnotateFloorPlan = () => {
 
       setUploadingStatus("Constructing graph...");
       const graph_response = await fetch(
-        "http://127.0.0.1:5000/post_user_feedback",
+        `http://127.0.0.1:5000/post_user_feedback`,
         {
           method: "POST",
           headers: {
@@ -223,7 +225,7 @@ const AnnotateFloorPlan = () => {
         ),
         {
           headers: {
-            Authorization: `Bearer ${process.env.REACT_APP_API_KEY_STRAPI}`, // Add API Key here
+            Authorization: `Bearer ${jwt}`, // Add API Key here
           },
         }
       );
