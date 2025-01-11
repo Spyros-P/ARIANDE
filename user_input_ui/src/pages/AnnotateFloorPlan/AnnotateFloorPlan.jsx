@@ -26,9 +26,11 @@ import ImageDisplay from "../../components/ShowImage/ShowImage.jsx";
 import { base64ToBlob } from "../../utils/base64ToBlob.js";
 import { createBuildingReqBody } from "../../utils/createBuildingReqBody.js";
 import { JWTContext } from "../../context/Auth/AuthContext.js";
+import { useNavigate } from "react-router-dom";
 
 const validFileTypes = ["png", "jpeg", "jpg"];
 const AnnotateFloorPlan = () => {
+  const navigate = useNavigate();
   const [currentBoundingBoxes, setCurrentBoundingBoxes] = useState([]);
   const [detectedBoundingBoxes, setDetectedBoundingBoxes] = useState([]);
   const [roomData, setRoomData] = useState([]);
@@ -231,7 +233,7 @@ const AnnotateFloorPlan = () => {
       );
       setIsSubmitted(true);
       setTimeout(() => {
-        window.location.reload();
+        navigate("/submissions");
       }, 3000);
     } catch (error) {
       // setIsSubmitted(false);
@@ -330,15 +332,23 @@ const AnnotateFloorPlan = () => {
                   </>
                 )}
               {(!showOtherFields || !currentFileName) && (
-                <CardList
-                  onDeleteCard={(x, y, w, h) => {}}
-                  cards={[]}
-                  title={"Upload your Floor Plan"}
-                  message={
-                    "The floor plan will then be analyzed by advanced ML models"
-                  }
-                  onSelectDelete={() => {}}
-                ></CardList>
+                <>
+                  <button
+                    style={{ fontSize: "18px" }}
+                    onClick={() => navigate("/submissions")}
+                  >
+                    Go back to submissions
+                  </button>
+                  <CardList
+                    onDeleteCard={(x, y, w, h) => {}}
+                    cards={[]}
+                    title={"Upload your Floor Plan"}
+                    message={
+                      "The floor plan will then be analyzed by advanced ML models"
+                    }
+                    onSelectDelete={() => {}}
+                  ></CardList>
+                </>
               )}
             </div>
           </div>

@@ -11,6 +11,7 @@ import { JWTProvider } from "./context/Auth/AuthContext.js";
 import { Protector } from "./utils/protector.js";
 import Notification from "./components/Notification/Notification.jsx";
 import { NotificationProvider } from "./context/Notifications/Notifications.js";
+import Submissions from "./pages/Submissions/Submissions.jsx";
 
 const router = createBrowserRouter([
   {
@@ -26,6 +27,14 @@ const router = createBrowserRouter([
     element: (
       <React.Fragment>
         <Protector Component={AnnotateFloorPlan}></Protector>
+      </React.Fragment>
+    ),
+  },
+  {
+    path: "/submissions",
+    element: (
+      <React.Fragment>
+        <Protector Component={Submissions}></Protector>
       </React.Fragment>
     ),
   },
@@ -51,6 +60,9 @@ class App extends Component {
 
   setNotification = (type, title, message) => {
     this.setState({ notification: type, title: title, message: message });
+    setTimeout(() => {
+      this.setState({ notification: "", title: "", message: "" });
+    }, 10);
   };
   render() {
     const { notification, title, message } = this.state;
