@@ -10,7 +10,7 @@ import pickle
 from typing import Tuple, List, Literal, Callable
 import json
 from inference_sdk import InferenceHTTPClient
-from functions import *
+from scripts.functions import *
 from tqdm import tqdm
 import tempfile
 from skimage.filters import threshold_multiotsu
