@@ -24,6 +24,10 @@ import {
   nearestNodeFromCurrentLocation,
   pixelsFromNodeID,
 } from "../../utils/manageFloorPlanGraph.js";
+import { startBleScan, stopBleScan } from "../../api/bleScan.js";
+import { positionCalc } from "../../utils/localization.js";
+import { requestPermissions } from "../../utils/permissions.js";
+
 export function MainPage({ provideYourScreenName, route }) {
   const imageZoomRef = useRef(null);
   const db = useSQLiteContext();
@@ -33,6 +37,7 @@ export function MainPage({ provideYourScreenName, route }) {
     width: 0,
     height: 0,
     graph: [],
+    //beacons: [] // beacon.name, beacon.x, beacon.y
   });
   const [currentPosition, setCurrentPosition] = useState({ x: 0, y: 0 });
   const [zoomScale, setZoomScale] = useState(1);
@@ -46,6 +51,16 @@ export function MainPage({ provideYourScreenName, route }) {
     y: -100,
   });
 
+  //const beaconsList = floorPlan.beacons || [];
+  const beaconsList = [
+    { name: "Fil_sev", x: 0, y: 0 },
+    { name: "my_room", x: 100, y: 300 },
+    { name: "myroom", x: 600, y: 150 },
+    { name: "Beacon_4", x: 800, y: 500 },
+  ];
+  const [devices, setDevices] = useState([]);  // { name: "Fil_sev", x: 0, y: 0, rssi: -130 }, { name: "my_room", x: 100, y: 300, rssi: -174 }, { name: "myroom", x: 600, y: 150, rssi: -186 }, { name: "myroo2m", x: 20, y: 0, rssi: -96 }
+  const devicesRef = useRef([]);
+
   useFocusEffect(
     React.useCallback(() => {
       const FetchMap = async (id) => {
@@ -53,11 +68,11 @@ export function MainPage({ provideYourScreenName, route }) {
           const res = await fetchFloorPlanByID(db, id);
           res?.floorPlanBase64
             ? setFloorPlan({
-                base64: res.floorPlanBase64,
-                width: res.floorPlanWidth,
-                height: res.floorPlanHeight,
-                graph: JSON.parse(res.graph),
-              })
+              base64: res.floorPlanBase64,
+              width: res.floorPlanWidth,
+              height: res.floorPlanHeight,
+              graph: JSON.parse(res.graph),
+            })
             : setFloorPlan({ base64: "", width: 0, height: 0, graph: [] });
           let JSONGraph = {};
           if (res.graph) {
@@ -78,6 +93,52 @@ export function MainPage({ provideYourScreenName, route }) {
         FetchMap(route.params?.CardId);
       }
     }, [route.params?.CardId])
+  );
+
+  useEffect(() => {
+    devicesRef.current = devices;
+  }, [devices]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const initializeScan = async () => {
+        const hasPermissions = await requestPermissions();
+        if (!hasPermissions) {
+          Alert.alert(
+            "Permission Denied",
+            "Bluetooth and Location permissions are required."
+          );
+          return;
+        }
+        console.log("Permissions granted. Starting BLE scan...");
+        startBleScan(beaconsList, setDevices);
+      };
+
+      initializeScan();
+
+      const calcInterval = setInterval(() => {
+        const currentDevices = devicesRef.current;
+        console.log(currentDevices);
+        const position = positionCalc(currentDevices, floorPlan.graph.Distance_Per_Pixel);
+        if (position) {
+          setCurrentPosition({ x: position[0], y: position[1] });
+          console.log("Updated position:", position);
+        }
+      }, 1000);
+
+      const timeoutInterval = setInterval(() => {
+        const deviceTimeout = 5000;
+        setDevices((prevDevices) =>
+          prevDevices.filter((device) => Date.now() - device.timestamp <= deviceTimeout)
+        );
+      }, 1000);
+
+      return () => {
+        stopBleScan();
+        clearInterval(calcInterval);
+        clearInterval(timeoutInterval)
+      };
+    }, [])
   );
 
   useEffect(() => {
