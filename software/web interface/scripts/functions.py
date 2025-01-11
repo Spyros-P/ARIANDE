@@ -187,8 +187,8 @@ def sharpen_image(image, kernel=3):
 
 def model_predict(image_path):
     # Load the model
-    model = YOLO("models/full_set_menu-yolo11m_plus3.pt")
-    results = model(image_path)[0]
+    model = YOLO("models/full_set_menu-yolo11m_plus3.pt", verbose=False)
+    results = model(image_path, verbose=False)[0]
 
     names =results.names
 

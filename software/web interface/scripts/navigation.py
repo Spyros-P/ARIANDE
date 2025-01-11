@@ -13,6 +13,7 @@ from inference_sdk import InferenceHTTPClient
 from functions import *
 from tqdm import tqdm
 import tempfile
+from skimage.filters import threshold_multiotsu
 
 MatLike = np.ndarray
 
@@ -62,7 +63,7 @@ class Indoor_Navigation:
         """
         A function that processes the image
         """
-        pbar = tqdm(total=4, desc="Overall Progress", unit="task")
+        pbar = tqdm(total=6, desc="Overall Progress", unit="task")
 
         pbar.write("Initial image process...")
         self.image = clean_image(self.image_original)
@@ -91,9 +92,7 @@ class Indoor_Navigation:
         #     self.plot_image(self.walls)
         # if self._debug_:
         #     self.plot_image(self.walls_doors)
-        pbar.update(1)
-        pbar.write("Creating Graph...")
-        self.graph, self.graph_nodes, self.contours = self.generate_graph(grid_size=grid_size, radius=radius, rooms=rooms)
+        self.graph, self.graph_nodes, self.contours = self.generate_graph(grid_size=grid_size, radius=radius, rooms=rooms, pbar=pbar)
         pbar.update(1)
         pbar.close()
 
@@ -365,7 +364,7 @@ class Indoor_Navigation:
         image_doors = self.walls.copy()
         door_centers = []
 
-        factor = 1.3
+        factor = 1.1
         for i, door in enumerate(doors):
             x, y, width, height = door['x'], door['y'], door['width'], door['height']
 
@@ -375,19 +374,46 @@ class Indoor_Navigation:
             y2 = int(y + height * factor / 2)
 
             # Set coordinates to the image boundaries
-            x1 = max(0, x1)
-            y1 = max(0, y1)
-            x2 = min(image_doors_erased.shape[1], x2)
-            y2 = min(image_doors_erased.shape[0], y2)
+            x1_temp = max(0, x1)
+            y1_temp = max(0, y1)
+            x2_temp = min(image_doors_erased.shape[1], x2)
+            y2_temp = min(image_doors_erased.shape[0], y2)
+            # TODO: Remove this later
+            x1 = min(x1_temp, x2_temp)
+            y1 = min(y1_temp, y2_temp)
+            x2 = max(x1_temp, x2_temp)
+            y2 = max(y1_temp, y2_temp)
 
-            image_doors_erased[y1:y2, x1:x2] = 255
+
+            img_doors = self.image_upscale[y1:y2, x1:x2]
+            try:
+                # apply gaussian blur
+                img_doors = cv2.GaussianBlur(img_doors, (5, 5), 0)
+            except:
+                print('Error in door detection')
+                print('x1:', x1, 'y1:', y1, 'x2:', x2, 'y2:', y2)
+                print()
+                raise ValueError('Error in door detection')
+
+            # Define the number of classes you want to segment the image into
+            num_classes = 3  # For example, segmenting into 3 classes
+
+            # Compute multi-level Otsu's thresholds
+            thresholds = threshold_multiotsu(img_doors, classes=num_classes)
+            # print(thresholds)
+
+            # Keep the 2nd class and white background
+            door_mask = cv2.inRange(img_doors, int(thresholds[0]), 255)
+            # dilation
+            door_mask = cv2.dilate(door_mask, kernel(5), iterations=1)
+            # apply mask
+            image_doors_erased[y1:y2, x1:x2] = cv2.bitwise_or(image_doors_erased[y1:y2, x1:x2], door_mask)
 
             # Add the door center to the list
             door_centers.append((x, y))
         
         return door_centers, image_doors_erased, image_doors
         
-
     # TODO: Implement the pixel_to_cm
     def detect_walls(self, image, pixel_to_cm):
         # Apply gaussian blur and thresholding
@@ -503,10 +529,13 @@ class Indoor_Navigation:
         # Convert the contours to Shapely Polygons
         self.rooms = [Polygon(room.squeeze()) for room in self.rooms]
 
-    def generate_graph(self, rooms=None, grid_size=30, radius=2.3):
+    def generate_graph(self, rooms=None, grid_size=30, radius=2.3, pbar=None):
         """
         A function that generates a graph based on the image
         """
+        if pbar is not None:
+            pbar.write("Creating Contours...")
+            pbar.update(1)
         if rooms is not None:
             rooms_dict = {}
             for room in rooms:
@@ -571,9 +600,22 @@ class Indoor_Navigation:
             if np.any(region == 0):
                 filtered_contours.append(contour)
 
-        contours = filtered_contours
+        rejected_contours = []
+        contours = []
 
-        print('Contour Filtering Done')
+        for c in filtered_contours:
+            if cv2.contourArea(c) > 30:
+                contours.append(c)
+            else:
+                rejected_contours.append(c)
+
+        # Fill the contours with white color
+        cv2.drawContours(image_margin, rejected_contours, -1, 255, cv2.FILLED)
+
+        
+        if pbar is not None:
+            pbar.write("Placing graph nodes...")
+            pbar.update(1)
 
         # Stage 6: Place the nodes on the image
         # Define the grid size
@@ -581,12 +623,12 @@ class Indoor_Navigation:
 
         # Create nodes at the center of each grid cell
         nodes = []
-        for i in range(grid_size, self.image_upscale.shape[1], grid_size):
-            for j in range(grid_size, self.image_upscale.shape[0], grid_size):
+        for i in range(margin+grid_size, margin+self.image_upscale.shape[1], grid_size):
+            for j in range(margin+grid_size, margin+self.image_upscale.shape[0], grid_size):
                 nodes.append((i, j))
 
         # Reject nodes that are on walls and doors
-        valid_nodes = [(node[0]+margin, node[1]+margin) for node in nodes if self.walls[node[1], node[0]] == 255]
+        valid_nodes = [node for node in nodes if image_margin[node[1], node[0]] == 255]
 
         # Stage 7: Create a graph based on the nodes
         # Connect the nodes to form a graph based on a threshold distance
@@ -615,27 +657,16 @@ class Indoor_Navigation:
             idx.insert(i, (node[0], node[1], node[0], node[1]))
 
         # Convert contours to Shapely Polygons for efficient intersection checks
-        # TODO: Reject extremely small contours @ this should get detected
-        contours = [c for c in contours if cv2.contourArea(c) > 25]
         
         contours_poly = [Polygon(c.squeeze()) for c in contours]
 
-        # Plot the contours_poly
-        # if self._debug_:
-        #     image = image_margin.copy()
-        #     # Image to RGB
-        #     image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
-        #     for contour in contours_poly:
-        #         import random
-        #         color = (random.randint(30, 200), random.randint(30, 200), random.randint(30, 200))
-        #         cv2.drawContours(image, [np.array(contour.exterior.coords, dtype=np.int32)], -1, color, 2)
-        #     self.plot_image(image, save_file='contours.png')
-
-        # TODO: Keeping valid contours only
-        # contours_poly = [c for c in contours_poly if c.is_valid]
-
 
         polygon_tree = STRtree(contours_poly)
+
+
+        if pbar is not None:
+            pbar.write("Connecting graph edges...")
+            pbar.update(1)
 
         # Connect nodes if close enough and no intersection with contours
         for i, pos_i in positions.items():
@@ -662,44 +693,21 @@ class Indoor_Navigation:
                 if not any(True for _ in polygon_tree.query(line, 'intersects')):
                     G.add_edge(i, j, weight=distances_dict[j])
 
-        # # Plot connected nodes
-        # if self._debug_:
-        #     image = self.image_upscale.copy()
-        #     # Image to RGB
-        #     image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
-        #     for i, j in G.edges:
-        #         cv2.line(image, (positions[i][0]-margin, positions[i][1]-margin), (positions[j][0]-margin, positions[j][1]-margin), (0, 0, 255), 2)
-        #     for i, node in positions.items():
-        #         cv2.circle(image, (node[0]-margin, node[1]-margin), 5, (255, 0, 0), -1)
-        #     self.plot_image(image, save_file='graph.png')
-
         # Isolate the largest connected component
         largest_cc = max(nx.connected_components(G), key=len)
         G = G.subgraph(largest_cc).copy()
 
-        # # Get the new valid nodes
-        graph_nodes = [positions[i] for i in G.nodes]
+        # Get the new valid nodes and subtract the margin value from their coordinates
+        graph_nodes = [(pos[0] - margin, pos[1] - margin) for pos in [positions[i] for i in G.nodes]]
 
         # Create a mapping from the original node labels to new labels
         mapping = {old_label: new_label for new_label, old_label in enumerate(G.nodes())}
 
+        # Relabel the nodes in the graph
         G = nx.relabel_nodes(G, mapping)
 
-        # # Plot connected nodes
-        # if self._debug_:
-        #     image = image_margin.copy()
-        #     # Image to RGB
-        #     image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
-        #     import numpy as np
-        #     import random
-        #     for contour in contours:
-        #         color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-        #         cv2.drawContours(image, [contour], -1, color, 2)
-        #     for i, j in G.edges:
-        #         cv2.line(image, positions[i], positions[j], (0, 0, 255), 2)
-        #     for i, node in positions.items():
-        #         cv2.circle(image, node, 5, (255, 0, 0), -1)
-        #     self.plot_image(image, save_file='graph.png')
+        # Update the positions dictionary with the new coordinates
+        positions = {new_label: (pos[0] - margin, pos[1] - margin) for new_label, pos in enumerate(graph_nodes)}
 
         return G, graph_nodes, polygon_tree
 
@@ -714,6 +722,8 @@ class Indoor_Navigation:
         # Convert pixels to centimeters
         return pixels * self.pixel_to_cm / scale
 
+
+
 ## For testing purposes ##
 if __name__ == '__main__':
 
@@ -727,19 +737,31 @@ if __name__ == '__main__':
     image = navigation.image_upscale.copy()
     graph = navigation.graph
 
-    # image to rgb
-    image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+    # navigation = Indoor_Navigation('assets/images/floor_plan_1.jpg',
+    #                                 'Fancy Hospital',
+    #                                 debug=True)
+    # navigation.calibrate(0.00148)
+    # navigation.process_image(grid_size=100)
 
-    # draw edges
-    for i, j in graph.edges:
-        cv2.line(image, navigation.graph_nodes[i], navigation.graph_nodes[j], (255, 0, 0), 2)
-    # draw nodes
-    for node in navigation.graph_nodes:
-        cv2.circle(image, node, 7, (0, 0, 255), -1)
+    # # plot graph
+    # image = navigation.image_upscale.copy()
+    # graph = navigation.graph
 
-    plt.figure(figsize=(20, 20))
-    plt.imshow(image)
-    plt.show()
+
+
+    # # image to rgb
+    # image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+
+    # # draw edges
+    # for i, j in graph.edges:
+    #     cv2.line(image, navigation.graph_nodes[i], navigation.graph_nodes[j], (255, 0, 0), 2)
+    # # draw nodes
+    # for node in navigation.graph_nodes:
+    #     cv2.circle(image, node, 7, (0, 0, 255), -1)
+
+    # plt.figure(figsize=(20, 20))
+    # plt.imshow(image)
+    # plt.show()
 
     # navigation.plot_graph()
     #navigation.plot_graph()
