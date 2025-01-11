@@ -179,3 +179,11 @@ button:disabled {
     opacity: 1;
   }
 }
+
+.notification-container {
+  margin-top: 75px;
+}
+
+.logout:hover {
+  background-color: #4f756f;
+}
