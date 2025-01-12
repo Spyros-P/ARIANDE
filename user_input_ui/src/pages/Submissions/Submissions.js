@@ -3,5 +3,5 @@ export const tableContainer = {
   flexDirection: "column",
   justifyContent: "center",
   alignItems: "center",
-  height: "90%",
+  height: "100%",
 };

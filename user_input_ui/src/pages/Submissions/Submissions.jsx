@@ -4,41 +4,29 @@ import Paper from "@mui/material/Paper";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEdit, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { tableContainer } from "./Submissions";
-import { useState } from "react";
-import { useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import axios from "axios";
 import { JWTContext } from "../../context/Auth/AuthContext";
-import { useContext } from "react";
 import { NotificationContext } from "../../context/Notifications/Notifications";
 import InfinitySpinner from "../../components/LoadingSpinner/LoadingSpinner";
 import { useNavigate } from "react-router-dom";
+import { Button, Tooltip, Snackbar } from "@mui/material";
 
 const convertStringToDate = (isoDateString) => {
-  // Create a Date object from the ISO string
   const date = new Date(isoDateString);
-
-  // Define options for formatting the date
   const dateOptions = {
-    day: "2-digit", // e.g., "11"
-    month: "2-digit", // e.g., "01"
-    year: "numeric", // e.g., "2025"
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
   };
-
-  // Define options for formatting the time
   const timeOptions = {
-    hour: "2-digit", // e.g., "07"
-    minute: "2-digit", // e.g., "25"
-    hour12: false, // Use 24-hour format
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
   };
-
-  // Format the date and time
-  const formattedDate = date.toLocaleDateString("en-GB", dateOptions); // 'en-GB' for day/month/year format
-  const formattedTime = date.toLocaleTimeString("en-GB", timeOptions); // 'en-GB' for 24-hour time format
-
-  // Combine the formatted date and time
-  const formattedDateTime = `${formattedDate} ${formattedTime}`;
-
-  return formattedDateTime; // Output: "11/01/2025 19:25"
+  const formattedDate = date.toLocaleDateString("en-GB", dateOptions);
+  const formattedTime = date.toLocaleTimeString("en-GB", timeOptions);
+  return `${formattedDate} ${formattedTime}`;
 };
 
 const Submissions = () => {
@@ -46,6 +34,8 @@ const Submissions = () => {
   const { jwt } = useContext(JWTContext);
   const [mySubmissions, setMySubmissions] = useState([]);
   const [isLoadingSubmissions, setIsLoadingSubmissions] = useState(false);
+  const [openSnackbar, setOpenSnackbar] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
   const navigate = useNavigate();
 
   const columns = [
@@ -73,11 +63,13 @@ const Submissions = () => {
       headerName: "Edit",
       width: 60,
       renderCell: (params) => (
-        <FontAwesomeIcon
-          icon={faEdit}
-          style={{ cursor: "pointer" }}
-          onClick={() => handleEditClick(params.id)}
-        />
+        <Tooltip title="Edit">
+          <FontAwesomeIcon
+            icon={faEdit}
+            style={{ cursor: "pointer", color: "#4CAF50", fontSize: "20px" }}
+            onClick={() => handleEditClick(params.id)}
+          />
+        </Tooltip>
       ),
     },
     {
@@ -85,16 +77,18 @@ const Submissions = () => {
       headerName: "Delete",
       width: 60,
       renderCell: (params) => (
-        <FontAwesomeIcon
-          icon={faTrash}
-          style={{ cursor: "pointer" }}
-          onClick={() => handleDeleteClick(params.id, params.row.name)}
-        />
+        <Tooltip title="Delete">
+          <FontAwesomeIcon
+            icon={faTrash}
+            style={{ cursor: "pointer", color: "#F44336", fontSize: "20px" }}
+            onClick={() => handleDeleteClick(params.id, params.row.name)}
+          />
+        </Tooltip>
       ),
     },
   ];
 
-  const paginationModel = { page: 0, pageSize: 5 };
+  const paginationModel = { page: 0, pageSize: 10 };
 
   const fetchMySubmissions = async () => {
     setIsLoadingSubmissions(true);
@@ -103,62 +97,60 @@ const Submissions = () => {
         `${process.env.REACT_APP_STRAPI_URL}/api/buildings`,
         {
           headers: {
-            Authorization: `Bearer ${jwt}`, // Add API Key here
+            Authorization: `Bearer ${jwt}`,
           },
         }
       );
-      console.log("BUILDINGS", responseBuildings.data);
       setMySubmissions(
-        responseBuildings.data.map((building) => {
-          console.log(building);
-          return {
-            id: building.documentId,
-            name: building.name,
-            lat: building.lat,
-            lon: building.lon,
-            status: building.publishedAt ? "Published" : "Under review",
-            createdAt: convertStringToDate(building.createdAt),
-            updatedAt: convertStringToDate(building.updatedAt),
-          };
-        })
+        responseBuildings.data.map((building) => ({
+          id: building.documentId,
+          name: building.name,
+          lat: building.lat,
+          lon: building.lon,
+          status: building.publishedAt ? "Published" : "Under review",
+          createdAt: convertStringToDate(building.createdAt),
+          updatedAt: convertStringToDate(building.updatedAt),
+        }))
       );
       setIsLoadingSubmissions(false);
     } catch (error) {
-      setNotification("error", "Error", "An error occured");
+      setNotification("error", "Error", "An error occurred");
     }
   };
 
   const handleEditClick = (id) => {
-    console.log(`Edit clicked for ID: ${id}`);
-    // Implement your edit logic here
+    navigate(`/annotate?building=${id}`);
   };
 
   const handleDeleteClick = async (id, name) => {
-    console.log(`Delete clicked for ID: ${id}`);
     const doDelete = window.confirm(`Do you really want to delete ${name}?`);
     if (doDelete) {
       try {
-        const responseDelete = await axios.delete(
+        await axios.delete(
           `${process.env.REACT_APP_STRAPI_URL}/api/buildings/${id}`,
           {
             headers: {
-              Authorization: `Bearer ${jwt}`, // Add API Key here
+              Authorization: `Bearer ${jwt}`,
             },
           }
         );
-
+        setSnackbarMessage("Building deleted successfully!");
+        setOpenSnackbar(true);
         fetchMySubmissions();
       } catch (error) {
-        setNotification("error", "Error", "When deleting the building");
+        setSnackbarMessage("Error deleting building.");
+        setOpenSnackbar(true);
       }
     }
   };
+
   useEffect(() => {
     fetchMySubmissions();
   }, []);
+
   return (
     <div style={tableContainer}>
-      {isLoadingSubmissions && (
+      {isLoadingSubmissions ? (
         <div
           style={{
             justifyContent: "center",
@@ -169,8 +161,7 @@ const Submissions = () => {
         >
           <InfinitySpinner color={"rgb(53, 123, 131)"} width={200} />
         </div>
-      )}
-      {!isLoadingSubmissions && (
+      ) : (
         <div
           style={{
             display: "flex",
@@ -182,25 +173,45 @@ const Submissions = () => {
             marginTop: "-5%",
           }}
         >
-          <button
-            style={{ fontSize: "18px" }}
+          <Button
+            variant="contained"
+            color="primary"
             onClick={() => navigate("/annotate")}
+            style={{
+              backgroundColor: "rgb(68, 129, 116)",
+              fontSize: "18px",
+              padding: "10px 20px",
+              borderRadius: "30px",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+            }}
           >
-            New submission
-          </button>
+            New Submission
+          </Button>
 
-          <Paper sx={{ height: "80%" }}>
+          <Paper sx={{ height: "80%", padding: "20px", borderRadius: "10px" }}>
             <DataGrid
               rows={mySubmissions}
               columns={columns}
               initialState={{ pagination: { paginationModel } }}
               pageSizeOptions={[5, 10, 15]}
               checkboxSelection
-              sx={{ border: 0, backgroundColor: "rgb(178, 190, 186)" }}
+              sx={{
+                border: 0,
+                backgroundColor: "rgb(245, 245, 245)",
+                boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                borderRadius: "10px",
+              }}
             />
           </Paper>
         </div>
       )}
+
+      <Snackbar
+        open={openSnackbar}
+        autoHideDuration={3000}
+        onClose={() => setOpenSnackbar(false)}
+        message={snackbarMessage}
+      />
     </div>
   );
 };

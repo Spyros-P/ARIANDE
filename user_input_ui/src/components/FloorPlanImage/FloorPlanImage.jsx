@@ -25,6 +25,7 @@ import Modal from "../Modal/Modal.jsx";
 const validFileTypes = ["png", "jpeg", "jpg"];
 
 const isPointInPolygon = (point, polygon) => {
+  if (!polygon || !point) return;
   let { x, y } = point;
   let isInside = false;
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
