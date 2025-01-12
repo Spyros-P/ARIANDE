@@ -190,10 +190,10 @@ button:disabled {
 
 .status-under-review {
   color: #a73447;
-  background-color: #d1adb6;
+  background-color: #e2c8cf;
 }
 
 .status-published {
   color: #097062;
-  background-color: #79b3ab;
+  background-color: #b9dbd8;
 }

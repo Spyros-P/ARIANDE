@@ -59,6 +59,19 @@ const Submissions = () => {
       },
     },
     {
+      field: "last_changes",
+      headerName: "Last Changes",
+      width: 150,
+      cellClassName: (params) => {
+        if (params.value === "Published") {
+          return "status-published";
+        } else if (params.value === "Under review") {
+          return "status-under-review";
+        }
+        return "";
+      },
+    },
+    {
       field: "edit",
       headerName: "Edit",
       width: 60,
@@ -94,27 +107,63 @@ const Submissions = () => {
     setIsLoadingSubmissions(true);
     try {
       const responseBuildings = await axios.get(
-        `${process.env.REACT_APP_STRAPI_URL}/api/buildings`,
+        `${process.env.REACT_APP_STRAPI_URL}/api/buildings?status=draft`,
         {
           headers: {
             Authorization: `Bearer ${jwt}`,
           },
         }
       );
-      setMySubmissions(
-        responseBuildings.data.map((building) => ({
-          id: building.documentId,
-          name: building.name,
-          lat: building.lat,
-          lon: building.lon,
-          status: building.publishedAt ? "Published" : "Under review",
-          createdAt: convertStringToDate(building.createdAt),
-          updatedAt: convertStringToDate(building.updatedAt),
-        }))
+
+      // Use Promise.all to wait for all asynchronous operations to complete
+      const submissions = await Promise.all(
+        responseBuildings.data.map(async (building) => {
+          let res = null;
+          try {
+            res = await axios.get(
+              `${process.env.REACT_APP_STRAPI_URL}/api/buildings/${building.documentId}`,
+              {
+                headers: {
+                  Authorization: `Bearer ${jwt}`,
+                },
+              }
+            );
+            console.log("INFOOOO", res.data.publishedAt);
+            console.log(building);
+          } catch (error) {
+            res = await axios.get(
+              `${process.env.REACT_APP_STRAPI_URL}/api/buildings/${building.documentId}?status=draft`,
+              {
+                headers: {
+                  Authorization: `Bearer ${jwt}`,
+                },
+              }
+            );
+            console.log("INFOOOO", res.data.publishedAt);
+            console.log(building);
+          }
+
+          return {
+            id: building.documentId,
+            name: building.name,
+            lat: building.lat,
+            lon: building.lon,
+            status: res.data.data.publishedAt ? "Published" : "Under review",
+            last_changes:
+              res.data.data.publishedAt >= building.updatedAt
+                ? "Published"
+                : "Under review",
+            createdAt: convertStringToDate(building.createdAt),
+            updatedAt: convertStringToDate(building.updatedAt),
+          };
+        })
       );
-      setIsLoadingSubmissions(false);
+
+      setMySubmissions(submissions);
     } catch (error) {
       setNotification("error", "Error", "An error occurred");
+    } finally {
+      setIsLoadingSubmissions(false);
     }
   };
 
