@@ -50,11 +50,24 @@ const Submissions = () => {
 
   const columns = [
     { field: "id", headerName: "ID", width: 70 },
-    { field: "name", headerName: "Name", width: 200 },
-    { field: "lat", headerName: "LAT", type: "number", width: 150 },
-    { field: "lon", headerName: "LON", type: "number", width: 150 },
+    { field: "name", headerName: "Name", width: 180 },
+    { field: "lat", headerName: "LAT", type: "number", width: 100 },
+    { field: "lon", headerName: "LON", type: "number", width: 100 },
     { field: "createdAt", headerName: "Created At", width: 150 },
     { field: "updatedAt", headerName: "Updated At", width: 150 },
+    {
+      field: "status",
+      headerName: "Status",
+      width: 120,
+      cellClassName: (params) => {
+        if (params.value === "Published") {
+          return "status-published";
+        } else if (params.value === "Under review") {
+          return "status-under-review";
+        }
+        return "";
+      },
+    },
     {
       field: "edit",
       headerName: "Edit",
@@ -103,6 +116,7 @@ const Submissions = () => {
             name: building.name,
             lat: building.lat,
             lon: building.lon,
+            status: building.publishedAt ? "Published" : "Under review",
             createdAt: convertStringToDate(building.createdAt),
             updatedAt: convertStringToDate(building.updatedAt),
           };

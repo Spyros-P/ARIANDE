@@ -60,6 +60,8 @@ const AnnotateFloorPlan = () => {
   const [doorDeleted, setDoorDeleted] = useState(false);
   const [distancePerPixel, setDistancePerPixel] = useState(0);
   const [uploadingStatus, setUploadingStatus] = useState("");
+  const [currentBLEs, setCurrentBLEs] = useState([]);
+  const [highlightedBLE, setHighLightedBLE] = useState(null);
 
   const { width, height } = useContext(WindowSizeContext);
   const { jwt } = useContext(JWTContext);
@@ -88,10 +90,25 @@ const AnnotateFloorPlan = () => {
         )
       );
     setDoorDeleted(true);
+    setHighlightedBox(null);
   };
 
-  const onSelectDelete = (x, y, w, h) => {
-    setHighlightedBox({ x: x, y: y, width: w, height: h });
+  const onDeleteBLE = (x, y) => {
+    setCurrentBLEs((prevBLEs) => {
+      const newBLEs = prevBLEs.filter((ble) => ble.x !== x && ble.y !== y);
+      return [...newBLEs];
+    });
+    setHighLightedBLE(null);
+  };
+
+  const onSelectDelete = (x, y, w, h, name) => {
+    if (w !== "") {
+      setHighlightedBox({ x: x, y: y, width: w, height: h });
+      setHighLightedBLE(null);
+    } else {
+      setHighLightedBLE({ x: x, y: y, name: name });
+      setHighlightedBox(null);
+    }
   };
 
   const generateCSV = () =>
@@ -223,7 +240,7 @@ const AnnotateFloorPlan = () => {
           buildingImageID,
           lat,
           lon,
-          graph.graph
+          { ...graph.graph, beacons: currentBLEs }
         ),
         {
           headers: {
@@ -306,25 +323,57 @@ const AnnotateFloorPlan = () => {
                 !isLoadingInference &&
                 !isLoadingSubmit && (
                   <>
-                    {" "}
-                    <CardList
-                      size="medium"
-                      onDeleteCard={(x, y, w, h) => {
-                        onDeleteCard(x, y, w, h, 1);
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 10,
+                        height: "650px",
+                        overflowY: "auto",
+                        padding: "12px 8px",
+                        borderRadius: "15px",
+                        backgroundColor: "rgb(105, 140, 122)",
                       }}
-                      setCurrentBoundingBoxes={setCurrentBoundingBoxes}
-                      setDetectedBoundingBoxes={setDetectedBoundingBoxes}
-                      cards={detectedBoundingBoxes}
-                      title={"Model's Bounding Boxes"}
-                      onSelectDelete={onSelectDelete}
-                    ></CardList>
-                    <CardList
-                      size="medium"
-                      onDeleteCard={(x, y, w, h) => onDeleteCard(x, y, w, h, 2)}
-                      cards={currentBoundingBoxes}
-                      title={"My Bounding Boxes"}
-                      onSelectDelete={onSelectDelete}
-                    ></CardList>
+                    >
+                      <div style={{ flex: 1 }}>
+                        <CardList
+                          size="medium"
+                          onDeleteCard={(x, y, w, h) => {
+                            onDeleteCard(x, y, w, h, 1);
+                          }}
+                          setCurrentBoundingBoxes={setCurrentBoundingBoxes}
+                          setDetectedBoundingBoxes={setDetectedBoundingBoxes}
+                          cards={detectedBoundingBoxes}
+                          title={"Model's Bounding Boxes"}
+                          onSelectDelete={onSelectDelete}
+                        ></CardList>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <CardList
+                          size="medium"
+                          onDeleteCard={(x, y, w, h) =>
+                            onDeleteCard(x, y, w, h, 2)
+                          }
+                          cards={currentBoundingBoxes}
+                          title={"My Bounding Boxes"}
+                          onSelectDelete={onSelectDelete}
+                        ></CardList>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <CardList
+                          size="medium"
+                          onDeleteCard={(x, y, w, h) => onDeleteBLE(x, y)}
+                          cards={currentBLEs.map((ble) => ({
+                            ...ble,
+                            label: "BLE",
+                            width: "",
+                            height: "",
+                          }))}
+                          title={"BLE beacons"}
+                          onSelectDelete={onSelectDelete}
+                        ></CardList>
+                      </div>
+                    </div>
                     <p style={{ color: "white", fontSize: "18px" }}>
                       Distance per 1000 pixel:{" "}
                       {(1000 * distancePerPixel).toFixed(2)} m.
@@ -386,6 +435,11 @@ const AnnotateFloorPlan = () => {
               setRoomData={setRoomData}
               setDistancePerPixel={setDistancePerPixel}
               distancePerPixel={distancePerPixel}
+              currentBLEs={currentBLEs}
+              setCurrentBLEs={setCurrentBLEs}
+              highlightedBLE={highlightedBLE}
+              setHighLightedBLE={setHighLightedBLE}
+              onDeleteBLE={onDeleteBLE}
             />
             {!isLoadingInference && showOtherFields && currentFileName && (
               <div
@@ -501,7 +555,8 @@ const AnnotateFloorPlan = () => {
                     !lat ||
                     !lon ||
                     !distancePerPixel ||
-                    distancePerPixel === 0
+                    distancePerPixel === 0 ||
+                    currentBLEs.length < 3
                   }
                   style={submitButton}
                   onClick={handleSubmitToStrapi}

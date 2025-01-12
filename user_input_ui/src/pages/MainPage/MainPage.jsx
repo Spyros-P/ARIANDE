@@ -31,7 +31,7 @@ const MainPage = () => {
       isValidUser(response?.data?.jwt || jwt).then((info) => {
         if (info.is_valid) {
           navigate("/submissions");
-          setNotification("success", "Welcome");
+          if (params) setNotification("success", "Welcome");
         }
         setIsLoadingLogin(false);
       });

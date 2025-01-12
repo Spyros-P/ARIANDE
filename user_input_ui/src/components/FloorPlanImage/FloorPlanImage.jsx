@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect, useContext } from "react";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { Audio } from "react-loader-spinner";
 import { Tooltip, TooltipProvider } from "react-tooltip";
+import { faDownload } from "@fortawesome/free-solid-svg-icons";
+import { faBroadcastTower } from "@fortawesome/free-solid-svg-icons";
 import {
   ImageContainer,
   Rectangle,
@@ -75,6 +77,11 @@ const FloorPlanImage = ({
   setDoorDeleted,
   setDistancePerPixel,
   distancePerPixel,
+  currentBLEs,
+  setCurrentBLEs,
+  highlightedBLE,
+  setHighLightedBLE,
+  onDeleteBLE,
 }) => {
   const [isDrawing, setIsDrawing] = useState(false); // Track if the user is currently drawing a box
   const [isDrawingLine, setIsDrawingLine] = useState(false);
@@ -96,6 +103,12 @@ const FloorPlanImage = ({
   const [shiftPressed, setShiftPressed] = useState(false);
   const [tempDistance, setTempDistance] = useState(0);
   const [pixelDistance, setPixelDistance] = useState(0);
+  const [bleButtonPressed, setBleButtonPressed] = useState(false);
+  const [currentZoom, setCurrentZoom] = useState(1.2);
+  const [showBLEModal, setShowBLEModal] = useState(false);
+  const [currentBLEName, setCurrentBLEName] = useState("");
+  const [isBLENameSubmitted, setIsBLENameSubmitted] = useState(false);
+  // const [highlightedBLE, setHighLightedBLE] = useState(null);
   // const [currentCsvRecords, setCurrentCsvRecords] = useState([]);
   // const [currentCsvRecord, setCurrentCsvRecord] = useState([]);
   const [highlightedRoom, setHighlightedRoom] = useState(null); // Room to be highlighted
@@ -105,23 +118,30 @@ const FloorPlanImage = ({
   const transformWrapperRef = useRef(null);
 
   // Function to place the rubbish bin at specific position
-  const placeRubbishBin = (x, y) => {
+  const placeRubbishBin = (x, y, type) => {
     return (
       <a
         onClick={() => {
-          onDeleteDoor(
-            highlightedBox.x,
-            highlightedBox.y,
-            highlightedBox.width,
-            highlightedBox.weight,
-            3
-          );
+          type === "door" &&
+            onDeleteDoor(
+              highlightedBox.x,
+              highlightedBox.y,
+              highlightedBox.width,
+              highlightedBox.weight,
+              3
+            );
+          type === "ble" &&
+            onDeleteBLE(
+              highlightedBLE.x,
+              highlightedBLE.y,
+              highlightedBLE.name
+            );
           // setDoorDeleted(true);
           // zoomToBox(highlightedBox);
         }}
       >
         <FontAwesomeIcon
-          icon={!doorDeleted ? faTrash : null}
+          icon={faTrash}
           size="2x"
           style={{
             cursor: "pointer",
@@ -136,6 +156,8 @@ const FloorPlanImage = ({
       </a>
     );
   };
+
+  console.log("BLES", currentBLEs);
 
   const zoomToBox = (box) => {
     const { x, y, width, height } = box;
@@ -366,6 +388,20 @@ const FloorPlanImage = ({
       // Draw the image
       ctx.drawImage(image, 0, 0);
 
+      currentBLEs.forEach((ble) => {
+        ctx.beginPath();
+        ctx.arc(ble.x, ble.y, 5, 0, Math.PI * 2); // Draw a small circle (radius = 5)
+        if (
+          highlightedBLE &&
+          highlightedBLE.x === ble.x &&
+          highlightedBLE.y === ble.y
+        )
+          ctx.fillStyle = "rgb(168, 175, 74)";
+        else ctx.fillStyle = "blue"; // Blue color for the point
+        ctx.fill();
+        ctx.fillText("BLE", ble.x - 9, ble.y - 8);
+      });
+
       // Draw all the bounding boxes
       detectedBoundingBoxes.concat(currentBoundingBoxes).forEach((box) => {
         ctx.beginPath();
@@ -380,8 +416,8 @@ const FloorPlanImage = ({
           highlightedBox.width === box.width &&
           highlightedBox.height === box.height
         ) {
-          if (!isPointInBox({ x: cursor.x, y: cursor.y }, highlightedBox))
-            zoomToBox(highlightedBox);
+          // if (!isPointInBox({ x: cursor.x, y: cursor.y }, highlightedBox))
+          //   zoomToBox(highlightedBox);
           ctx.strokeStyle = "purple"; // Highlight the box with a blue color
           ctx.lineWidth = 3; // Make the border thicker
         } else {
@@ -423,7 +459,9 @@ const FloorPlanImage = ({
     isDrawingLine,
     currentBox,
     currentLine,
+    currentBLEs,
     highlightedBox,
+    highlightedBLE,
     imageSrc, // Redraw when image is uploaded
   ]);
 
@@ -437,7 +475,7 @@ const FloorPlanImage = ({
 
   // Mouse down event to start drawing the bounding box
   const handleMouseDown = (e) => {
-    if (!ctrlPressed && !shiftPressed) return; // Only allow drawing if Ctrl is pressed
+    if (!ctrlPressed && !shiftPressed && !bleButtonPressed) return; // Only allow drawing if Ctrl is pressed
     const { offsetX, offsetY } = e.nativeEvent;
     setStartPoint({ x: offsetX, y: offsetY });
     if (ctrlPressed) {
@@ -457,6 +495,9 @@ const FloorPlanImage = ({
         endX: offsetX,
         endY: offsetY,
       });
+    } else if (bleButtonPressed) {
+      setStartPoint({ x: e.clientX, y: e.clientY });
+      handleCanvasClick(e);
     }
   };
 
@@ -483,10 +524,22 @@ const FloorPlanImage = ({
     currentBoundingBoxes.concat(detectedBoundingBoxes).forEach((box) => {
       if (isPointInBox({ x: offsetX, y: offsetY }, box)) {
         setHighlightedBox(box);
+        setHighLightedBLE(null);
         setDoorDeleted(false);
       }
     });
-
+    // setHighLightedBLE(null);
+    currentBLEs.forEach((ble) => {
+      if (
+        isPointInBox(
+          { x: offsetX, y: offsetY },
+          { x: ble.x - 15, y: ble.y - 15, width: 30, height: 30 }
+        )
+      ) {
+        setHighLightedBLE(ble);
+        setHighlightedBox(null);
+      }
+    });
     const width = offsetX - startPoint.x;
     const height = offsetY - startPoint.y;
     setTimeout(() => {
@@ -635,7 +688,54 @@ const FloorPlanImage = ({
     }
   }, [imageIsGrabbed, ctrlPressed, shiftPressed]);
 
-  console.log(Math.max(500, 0.35 * windowWidth));
+  const handleBleButtonPressed = () => {
+    setBleButtonPressed(!bleButtonPressed);
+  };
+
+  // Function to handle canvas click and draw a point
+  const handleCanvasClick = (e) => {
+    setBleButtonPressed(false);
+    setShowBLEModal(true);
+  };
+
+  useEffect(() => {
+    if (isBLENameSubmitted) {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const ctx = canvas.getContext("2d");
+      const rect = canvas.getBoundingClientRect();
+
+      console.log("START POINT", startPoint);
+      console.log("RECT", rect);
+      const x = (startPoint.x - rect.left) / currentZoom;
+      const y = (startPoint.y - rect.top) / currentZoom;
+      console.log("ZOOM", currentZoom);
+
+      console.log("IS NAME SUBMITTED", isBLENameSubmitted);
+      setIsBLENameSubmitted(false);
+      setCurrentBLEs((prevBLEs) => [
+        ...prevBLEs,
+        { x, y, name: currentBLEName },
+      ]);
+
+      console.log("POINT", x, y);
+      ctx.beginPath();
+      ctx.arc(x, y, 5, 0, Math.PI * 2); // Draw a small circle (radius = 5)
+      ctx.fillStyle = "blue"; // Blue color for the point
+      ctx.fill();
+    }
+  }, [isBLENameSubmitted]);
+
+  useEffect(() => {
+    const canvas = canvasRoomsRef.current;
+    if (bleButtonPressed) {
+      console.log("CANVAS", canvas);
+      setImageCursor("move");
+    } else {
+      setImageCursor("grab");
+    }
+  }, [bleButtonPressed]);
 
   return (
     <div style={imageContainer}>
@@ -705,8 +805,10 @@ const FloorPlanImage = ({
             initialScale={1.2}
             initialPositionX={0}
             initialPositionY={0}
+            minScale={0.6}
             disabled={ctrlPressed || shiftPressed}
             limitToBounds={false}
+            onZoom={(zoomDetails) => setCurrentZoom(zoomDetails.state.scale)}
           >
             <ImageContainer
               style={{
@@ -738,7 +840,14 @@ const FloorPlanImage = ({
                 {highlightedBox &&
                   placeRubbishBin(
                     highlightedBox?.x + highlightedBox.width - 3,
-                    highlightedBox?.y - 10
+                    highlightedBox?.y - 10,
+                    "door"
+                  )}
+                {highlightedBLE &&
+                  placeRubbishBin(
+                    highlightedBLE?.x,
+                    highlightedBLE?.y - 15,
+                    "ble"
                   )}
                 <canvas
                   ref={canvasRef}
@@ -749,6 +858,7 @@ const FloorPlanImage = ({
                     pointerEvents: "none",
                   }}
                 />
+
                 <canvas
                   ref={canvasRoomsRef}
                   style={{
@@ -789,6 +899,24 @@ const FloorPlanImage = ({
           inputValue={tempDistance}
         />
       )}
+      {showBLEModal && (
+        <Modal
+          forDistancePerPixel={false}
+          forRooms={true}
+          disabledOK={!currentBLEName}
+          handleCancel={() => {
+            setCurrentBLEName("");
+            setShowBLEModal(false);
+          }}
+          handleSubmit={() => {
+            setShowBLEModal(false);
+            setIsBLENameSubmitted(true);
+          }}
+          title={`Add the name of the BLE beacon`}
+          handleInputValue={(e) => setCurrentBLEName(e.target.value)}
+          inputValue={currentBLEName}
+        />
+      )}
       {imageSrc && !isLoadingInference && (
         <div style={buttonsContainer}>
           {" "}
@@ -811,15 +939,26 @@ const FloorPlanImage = ({
           >
             Back <Tooltip anchorId="tooltip-button4" content="Go back" />
           </button>
-          <button id="tooltip-button3" onClick={generateCSV}>
-            Download CSV{" "}
+          <button
+            style={{ display: "flex", flexDirection: "row", gap: 10 }}
+            id="tooltip-button3"
+            onClick={generateCSV}
+          >
+            CSV{" "}
+            <FontAwesomeIcon icon={faDownload} style={{ marginRight: "8px" }} />
             <Tooltip
               anchorId="tooltip-button3"
               content="Extract annotations in CSV format"
             />
           </button>
-          <button id="tooltip-button2" className="yellow" onClick={generateXML}>
-            Download XML
+          <button
+            style={{ display: "flex", flexDirection: "row", gap: 10 }}
+            id="tooltip-button2"
+            className="yellow"
+            onClick={generateXML}
+          >
+            XML{" "}
+            <FontAwesomeIcon icon={faDownload} style={{ marginRight: "8px" }} />
             <Tooltip
               anchorId="tooltip-button2"
               content="Extract annotations in XML format"
@@ -837,6 +976,19 @@ const FloorPlanImage = ({
             }
           >
             <FontAwesomeIcon icon={faCrosshairs} />
+          </button>
+          <button
+            onClick={handleBleButtonPressed}
+            style={{ background: "none", transform: "scale(1.5)" }}
+          >
+            <FontAwesomeIcon
+              style={{
+                color: bleButtonPressed
+                  ? "rgb(210, 73, 137)"
+                  : "rgb(26, 192, 173)",
+              }}
+              icon={faBroadcastTower}
+            />
           </button>
         </div>
       )}

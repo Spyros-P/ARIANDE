@@ -16,7 +16,7 @@ const Modal = ({
         <h2 style={{ fontSize: "16px", marginBottom: "20px" }}>{title}</h2>
         {forRooms && (
           <>
-            <label>Your Label</label>
+            <label>Add label</label>
             <input
               type="text"
               value={inputValue}

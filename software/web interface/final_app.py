@@ -175,7 +175,7 @@ def predict_rooms():
 @app.route('/predict_doors_yolo11', methods=['POST'])
 def predict_doors_yolo11():
 
-    model_path = os.path.join(BASE_PATH, "Indoor-Navigation/software/web interface/models/full_set_menu-yolo11m_plus2.pt")
+    model_path = os.path.join(BASE_PATH, "Indoor-Navigation/software/web interface/models/full_set_menu-yolo11m_plus3.pt")
 
     data = request.get_json()
 
@@ -215,10 +215,10 @@ def post_user_feedback():
 
     navigation = Indoor_Navigation(image_path)
     navigation.calibrate(pixels_to_cm)
-    grid_size = int(navigation.cm_to_pixels(40, scale=4))
+    grid_size = int(navigation.cm_to_pixels(150, scale=4))
     navigation.process_image(grid_size=grid_size, doors=doors, rooms=rooms)
 
-    # navigation.save('navigation-instances/admin_ui_test.pkl')
+    navigation.save('navigation-instances/admin_ui_test.pkl')
     
     return jsonify({"graph" : navigation.get_json()})
 
