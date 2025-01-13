@@ -20,15 +20,7 @@ const Notification = ({ type, title, message }) => {
           NotificationManager.warning(message, title, 3000);
           break;
         case "error":
-          NotificationManager.error(
-            message,
-            title,
-            5000,
-            () => {
-              alert("callback");
-            },
-            "custom-class"
-          );
+          NotificationManager.error(message, title, 5000, null, "custom-class");
           break;
       }
     };

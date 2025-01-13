@@ -27,6 +27,7 @@ export const CardList = ({
           height={card.height}
           startCoords={{ x: card.x, y: card.y }}
           onSelectDelete={onSelectDelete}
+          name={card.name ? card.name : ""}
         ></ObjectCard>
       ))}
       {cards.length === 0 && !message && <p>No bounding boxes available</p>}

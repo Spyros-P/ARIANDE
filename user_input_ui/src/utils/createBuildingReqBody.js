@@ -17,6 +17,7 @@ export const createBuildingReqBody = (
       graph,
       image: buildingImageID,
       floorPlan: floorPlanImageID,
+      owner: "",
     },
   };
 };

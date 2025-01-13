@@ -5,6 +5,7 @@ import numpy as np
 import os
 import base64
 import subprocess
+import uuid
 import logging
 import shutil
 from predict_walls.UNet_Pytorch_Customdataset.predict import predict_wall_mask
@@ -175,7 +176,7 @@ def predict_rooms():
 @app.route('/predict_doors_yolo11', methods=['POST'])
 def predict_doors_yolo11():
 
-    model_path = os.path.join(BASE_PATH, "Indoor-Navigation/software/web interface/models/full_set_menu-yolo11m_plus2.pt")
+    model_path = os.path.join(BASE_PATH, "Indoor-Navigation/software/web interface/models/full_set_menu-yolo11m_plus3.pt")
 
     data = request.get_json()
 
@@ -209,18 +210,49 @@ def post_user_feedback():
     data = request.get_json()
     doors = data['doors']
     rooms = data['rooms']
-    pixels_to_cm = float(data['distancePerPixel'])*100.0
+    pixels_to_cm = float(data['distancePerPixel']) * 100.0
 
-    image_path = os.path.join(BASE_PATH, "Indoor-Navigation/software/web interface/assets/temp_images/temp_image_rooms.jpg")
+    # Extract base64 image data from the request
+    image_data = data['image']
+    if image_data.startswith('data:image/jpeg;base64,'):
+        image_data = image_data[len('data:image/jpeg;base64,'):]
+    elif image_data.startswith('data:image/png;base64,'):
+        image_data = image_data[len('data:image/png;base64,'):]
+    else:
+        return jsonify({"error": "Unsupported image format"}), 400
 
+    # Decode the base64 image data
+    try:
+        image_bytes = base64.b64decode(image_data)
+    except Exception as e:
+        return jsonify({"error": f"Failed to decode image: {str(e)}"}), 400
+
+    # Generate a unique filename
+    unique_filename = f"{uuid.uuid4().hex}.jpg"
+    image_path = os.path.join(BASE_PATH,"Indoor-Navigation/software/web interface/assets/temp_images/", unique_filename)
+
+    # Save the image to the specified path
+    try:
+        with open(image_path, 'wb') as f:
+            f.write(image_bytes)
+    except Exception as e:
+        return jsonify({"error": f"Failed to save image: {str(e)}"}), 500
+
+    # Initialize navigation with the saved image
     navigation = Indoor_Navigation(image_path)
     navigation.calibrate(pixels_to_cm)
-    grid_size = int(navigation.cm_to_pixels(40, scale=4))
+    grid_size = int(navigation.cm_to_pixels(150, scale=4))
     navigation.process_image(grid_size=grid_size, doors=doors, rooms=rooms)
 
-    # navigation.save('navigation-instances/admin_ui_test.pkl')
-    
-    return jsonify({"graph" : navigation.get_json()})
+    # Save the navigation instance
+    navigation.save('navigation-instances/admin_ui_test.pkl')
+
+    # Prepare the result
+    result = navigation.get_json()
+    result['Rooms'] = rooms
+    result['Distance_Per_Pixel'] = data['distancePerPixel']
+
+    return jsonify({"graph": result})
 
 
 

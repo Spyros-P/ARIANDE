@@ -14,18 +14,24 @@
     },
     "ios": {
       "jsEngine": "jsc",
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.hipeacmobileapp"
     },
     "android": {
       "softwareKeyboardLayoutMode": "pan",
       "adaptiveIcon": {
         "foregroundImage": "./assets/ariadne.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.anonymous.hipeacmobileapp"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-asset", "expo-font"]
+    "plugins": [
+      "expo-asset",
+      "expo-font",
+      "react-native-ble-plx"
+    ]
   }
 }

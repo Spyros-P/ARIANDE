@@ -15,6 +15,7 @@ export const ObjectCard = ({
   startCoords,
   onDeleteCard,
   onSelectDelete,
+  name,
 }) => {
   const [btnIsHovered, setBtnIsHovered] = useState(false);
   return (
@@ -31,16 +32,27 @@ export const ObjectCard = ({
         Object {number}: {objectType}
       </h3>
       <div style={infoContainerStyle}>
+        {objectType !== "BLE" && (
+          <p style={infoStyle}>
+            <strong>Width:</strong> {width}
+          </p>
+        )}
+        {objectType !== "BLE" && (
+          <p style={infoStyle}>
+            <strong>Height:</strong> {height}
+          </p>
+        )}
         <p style={infoStyle}>
-          <strong>Width:</strong> {width}
+          <strong>
+            {objectType === "BLE" ? "Coordinates:" : "Start Coordinates:"}
+          </strong>{" "}
+          ({startCoords.x.toFixed(0)},{startCoords.y.toFixed(0)})
         </p>
-        <p style={infoStyle}>
-          <strong>Height:</strong> {height}
-        </p>
-        <p style={infoStyle}>
-          <strong>Start Coordinates:</strong> ({startCoords.x.toFixed(0)},
-          {startCoords.y.toFixed(0)})
-        </p>
+        {objectType === "BLE" && (
+          <p style={infoStyle}>
+            <strong>Name:</strong> {name}
+          </p>
+        )}
       </div>
       <button
         className="deleteBtn"

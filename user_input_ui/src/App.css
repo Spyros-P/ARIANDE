@@ -187,3 +187,13 @@ button:disabled {
 .logout:hover {
   background-color: #4f756f;
 }
+
+.status-under-review {
+  color: #a73447;
+  background-color: #e2c8cf;
+}
+
+.status-published {
+  color: #097062;
+  background-color: #b9dbd8;
+}

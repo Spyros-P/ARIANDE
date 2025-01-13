@@ -1,10 +1,13 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import axios from "axios";
 import { CardList } from "../../components/CardList/CardList.jsx";
 import FloorPlanImage from "../../components/FloorPlanImage/FloorPlanImage.jsx";
 import { faArrowLeft, faArrowRight } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Audio } from "react-loader-spinner";
+import { useLocation } from "react-router-dom";
+import InfinitySpinner from "../../components/LoadingSpinner/LoadingSpinner";
+import { convertPublicImageToBase64 } from "../../utils/urlToBase64.js";
 
 import {
   cardContainer,
@@ -26,9 +29,15 @@ import ImageDisplay from "../../components/ShowImage/ShowImage.jsx";
 import { base64ToBlob } from "../../utils/base64ToBlob.js";
 import { createBuildingReqBody } from "../../utils/createBuildingReqBody.js";
 import { JWTContext } from "../../context/Auth/AuthContext.js";
+import { useNavigate } from "react-router-dom";
+import { NotificationContext } from "../../context/Notifications/Notifications.js";
 
 const validFileTypes = ["png", "jpeg", "jpg"];
 const AnnotateFloorPlan = () => {
+  const navigate = useNavigate();
+  const buildingToEdit = new URLSearchParams(useLocation().search).get(
+    "building"
+  );
   const [currentBoundingBoxes, setCurrentBoundingBoxes] = useState([]);
   const [detectedBoundingBoxes, setDetectedBoundingBoxes] = useState([]);
   const [roomData, setRoomData] = useState([]);
@@ -41,7 +50,7 @@ const AnnotateFloorPlan = () => {
   });
   const [showDetails, setShowDetails] = useState(true);
   const [showOtherFields, setShowOtherFields] = useState(false);
-
+  const [isFetchingBuilding, setIsFetchingBuilding] = useState(false);
   const [isLoadingInference, setIsLoadingInference] = useState(false);
   const [fileType, setFileType] = useState(null);
   const [fileTypeError, setFileTypeError] = useState("");
@@ -58,9 +67,59 @@ const AnnotateFloorPlan = () => {
   const [doorDeleted, setDoorDeleted] = useState(false);
   const [distancePerPixel, setDistancePerPixel] = useState(0);
   const [uploadingStatus, setUploadingStatus] = useState("");
+  const [currentBLEs, setCurrentBLEs] = useState([]);
+  const [highlightedBLE, setHighLightedBLE] = useState(null);
+  const setNotification = useContext(NotificationContext);
 
   const { width, height } = useContext(WindowSizeContext);
   const { jwt } = useContext(JWTContext);
+
+  useEffect(() => {
+    const fetchBuildingToEdit = async () => {
+      setIsFetchingBuilding(true);
+      try {
+        const response = await axios.get(
+          `${process.env.REACT_APP_STRAPI_URL}/api/buildings/${buildingToEdit}?populate=*&status=draft`,
+          {
+            headers: {
+              Authorization: `Bearer ${jwt}`,
+            },
+          }
+        );
+        console.log("BUILDING DATA", response.data.data);
+        const resData = response.data.data;
+        setLat(resData.lat);
+        setLon(resData.lon);
+        setBuildingName(resData.name);
+        setRoomData(resData.graph.Rooms);
+        setDistancePerPixel(resData.graph.Distance_Per_Pixel);
+        setShowOtherFields(true);
+        setCurrentFileName(resData.floorPlan.name);
+        setCurrentBLEs(resData.graph.beacons);
+        setCurrentBoundingBoxes(resData.graph.myDoors);
+        setDetectedBoundingBoxes(resData.graph.modelDoors);
+
+        convertPublicImageToBase64(resData.floorPlan.url).then(
+          setFloorPlanImageSrc
+        );
+
+        convertPublicImageToBase64(resData.image.url).then(setBuildingImgSrc);
+
+        setImageDimensions({
+          width: resData.floorPlan.width,
+          height: resData.floorPlan.height,
+          depth: 3,
+        });
+        setIsFetchingBuilding(false);
+      } catch (error) {
+        setIsFetchingBuilding(true);
+        setNotification("error", "Error", "While fetching the building");
+      }
+    };
+    if (buildingToEdit) {
+      fetchBuildingToEdit();
+    }
+  }, [buildingToEdit]);
 
   const handleLat = (e) => {
     setLat(e.target.value);
@@ -86,10 +145,25 @@ const AnnotateFloorPlan = () => {
         )
       );
     setDoorDeleted(true);
+    setHighlightedBox(null);
   };
 
-  const onSelectDelete = (x, y, w, h) => {
-    setHighlightedBox({ x: x, y: y, width: w, height: h });
+  const onDeleteBLE = (x, y) => {
+    setCurrentBLEs((prevBLEs) => {
+      const newBLEs = prevBLEs.filter((ble) => ble.x !== x && ble.y !== y);
+      return [...newBLEs];
+    });
+    setHighLightedBLE(null);
+  };
+
+  const onSelectDelete = (x, y, w, h, name) => {
+    if (w !== "") {
+      setHighlightedBox({ x: x, y: y, width: w, height: h });
+      setHighLightedBLE(null);
+    } else {
+      setHighLightedBLE({ x: x, y: y, name: name });
+      setHighlightedBox(null);
+    }
   };
 
   const generateCSV = () =>
@@ -202,6 +276,7 @@ const AnnotateFloorPlan = () => {
             doors: detectedBoundingBoxes.concat(currentBoundingBoxes),
             rooms: roomData,
             distancePerPixel: distancePerPixel,
+            image: floorPlanImageSrc,
           }),
         }
       );
@@ -213,25 +288,52 @@ const AnnotateFloorPlan = () => {
         console.error("Error from server:", await graph_response.text());
       }
 
-      const response = await axios.post(
-        `${process.env.REACT_APP_STRAPI_URL}/api/buildings?status=draft`,
-        createBuildingReqBody(
-          buildingName,
-          floorPlanImageID,
-          buildingImageID,
-          lat,
-          lon,
-          graph.graph
-        ),
-        {
-          headers: {
-            Authorization: `Bearer ${jwt}`, // Add API Key here
-          },
-        }
-      );
+      const response = !buildingToEdit
+        ? await axios.post(
+            `${process.env.REACT_APP_STRAPI_URL}/api/buildings?status=draft`,
+            createBuildingReqBody(
+              buildingName,
+              floorPlanImageID,
+              buildingImageID,
+              lat,
+              lon,
+              {
+                ...graph.graph,
+                beacons: currentBLEs,
+                modelDoors: detectedBoundingBoxes,
+                myDoors: currentBoundingBoxes,
+              }
+            ),
+            {
+              headers: {
+                Authorization: `Bearer ${jwt}`, // Add API Key here
+              },
+            }
+          )
+        : await axios.put(
+            `${process.env.REACT_APP_STRAPI_URL}/api/buildings/${buildingToEdit}?status=draft`,
+            createBuildingReqBody(
+              buildingName,
+              floorPlanImageID,
+              buildingImageID,
+              lat,
+              lon,
+              {
+                ...graph.graph,
+                beacons: currentBLEs,
+                modelDoors: detectedBoundingBoxes,
+                myDoors: currentBoundingBoxes,
+              }
+            ),
+            {
+              headers: {
+                Authorization: `Bearer ${jwt}`, // Add API Key here
+              },
+            }
+          );
       setIsSubmitted(true);
       setTimeout(() => {
-        window.location.reload();
+        navigate("/submissions");
       }, 3000);
     } catch (error) {
       // setIsSubmitted(false);
@@ -244,10 +346,22 @@ const AnnotateFloorPlan = () => {
     }
   };
   return (
-    // <CardList cards={[1, 2, 3]} title={"Model's Bounding Boxes"}></CardList>
     <div style={pageContainer}>
       <div style={containerStyle}>
-        {inferenceError && (
+        {isFetchingBuilding && (
+          <div
+            style={{
+              justifyContent: "center",
+              display: "flex",
+              alignItems: "center",
+              transform: "scale(1.2)",
+              width: "100%",
+            }}
+          >
+            <InfinitySpinner color={"rgb(53, 123, 131)"} width={200} />
+          </div>
+        )}
+        {inferenceError && !isFetchingBuilding && (
           <div
             style={{
               display: "flex",
@@ -259,7 +373,10 @@ const AnnotateFloorPlan = () => {
             <p
               style={{
                 color: "rgb(192, 79, 79)",
-                fontSize: 30,
+                fontSize: "30px",
+                fontWeight: "bold",
+                textAlign: "center",
+                marginBottom: "20px",
               }}
             >
               {inferenceError}
@@ -269,16 +386,33 @@ const AnnotateFloorPlan = () => {
                 window.location.reload();
               }}
               className="cancel"
+              style={{
+                padding: "12px 24px",
+                backgroundColor: "rgb(192, 79, 79)",
+                border: "none",
+                borderRadius: "8px",
+                color: "#fff",
+                fontSize: "16px",
+                cursor: "pointer",
+                transition: "background-color 0.3s ease",
+              }}
+              onMouseEnter={(e) =>
+                (e.target.style.backgroundColor = "rgb(153, 63, 63)")
+              }
+              onMouseLeave={(e) =>
+                (e.target.style.backgroundColor = "rgb(192, 79, 79)")
+              }
             >
               Reload
             </button>
           </div>
         )}
-        {width > 900 && !inferenceError && (
+        {width > 900 && !inferenceError && !isFetchingBuilding && (
           <div
             style={{
               ...columnStyleSecondary,
-              ...{ flex: showDetails ? 5 : 1 },
+              flex: showDetails ? 5 : 1,
+              transition: "flex 0.3s ease",
             }}
           >
             {showOtherFields &&
@@ -290,10 +424,14 @@ const AnnotateFloorPlan = () => {
                     setShowDetails(!showDetails);
                   }}
                   className="details-button"
-                  style={showDetailsButton}
+                  style={{
+                    ...showDetailsButton,
+                    transition: "transform 0.3s ease",
+                  }}
                 >
                   <FontAwesomeIcon
                     icon={showDetails ? faArrowLeft : faArrowRight}
+                    style={{ fontSize: "18px", color: "#333" }}
                   />
                 </button>
               )}
@@ -304,46 +442,98 @@ const AnnotateFloorPlan = () => {
                 !isLoadingInference &&
                 !isLoadingSubmit && (
                   <>
-                    {" "}
-                    <CardList
-                      size="medium"
-                      onDeleteCard={(x, y, w, h) => {
-                        onDeleteCard(x, y, w, h, 1);
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 20,
+                        height: "650px",
+                        overflowY: "auto",
+                        padding: "20px",
+                        borderRadius: "15px",
+                        backgroundColor: "rgb(105, 140, 122)",
+                        boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
                       }}
-                      setCurrentBoundingBoxes={setCurrentBoundingBoxes}
-                      setDetectedBoundingBoxes={setDetectedBoundingBoxes}
-                      cards={detectedBoundingBoxes}
-                      title={"Model's Bounding Boxes"}
-                      onSelectDelete={onSelectDelete}
-                    ></CardList>
-                    <CardList
-                      size="medium"
-                      onDeleteCard={(x, y, w, h) => onDeleteCard(x, y, w, h, 2)}
-                      cards={currentBoundingBoxes}
-                      title={"My Bounding Boxes"}
-                      onSelectDelete={onSelectDelete}
-                    ></CardList>
-                    <p style={{ color: "white", fontSize: "18px" }}>
+                    >
+                      <CardList
+                        size="medium"
+                        onDeleteCard={(x, y, w, h) => {
+                          onDeleteCard(x, y, w, h, 1);
+                        }}
+                        setCurrentBoundingBoxes={setCurrentBoundingBoxes}
+                        setDetectedBoundingBoxes={setDetectedBoundingBoxes}
+                        cards={detectedBoundingBoxes}
+                        title={"Model's Bounding Boxes"}
+                        onSelectDelete={onSelectDelete}
+                      />
+                      <CardList
+                        size="medium"
+                        onDeleteCard={(x, y, w, h) =>
+                          onDeleteCard(x, y, w, h, 2)
+                        }
+                        cards={currentBoundingBoxes}
+                        title={"My Bounding Boxes"}
+                        onSelectDelete={onSelectDelete}
+                      />
+                      <CardList
+                        size="medium"
+                        onDeleteCard={(x, y, w, h) => onDeleteBLE(x, y)}
+                        cards={currentBLEs.map((ble) => ({
+                          ...ble,
+                          label: "BLE",
+                          width: "",
+                          height: "",
+                        }))}
+                        title={"BLE beacons"}
+                        onSelectDelete={onSelectDelete}
+                      />
+                    </div>
+                    <p
+                      style={{
+                        color: "white",
+                        fontSize: "18px",
+                        textAlign: "center",
+                        marginTop: "10px",
+                      }}
+                    >
                       Distance per 1000 pixel:{" "}
                       {(1000 * distancePerPixel).toFixed(2)} m.
                     </p>
                   </>
                 )}
               {(!showOtherFields || !currentFileName) && (
-                <CardList
-                  onDeleteCard={(x, y, w, h) => {}}
-                  cards={[]}
-                  title={"Upload your Floor Plan"}
-                  message={
-                    "The floor plan will then be analyzed by advanced ML models"
-                  }
-                  onSelectDelete={() => {}}
-                ></CardList>
+                <>
+                  <button
+                    style={{
+                      fontSize: "18px",
+                      backgroundColor: "rgb(93, 167, 154)",
+                      color: "#fff",
+                      padding: "12px 24px",
+                      borderRadius: "8px",
+                      border: "none",
+                      cursor: "pointer",
+                      transition: "background-color 0.3s ease",
+                    }}
+                    onClick={() => navigate("/submissions")}
+                  >
+                    Go back to submissions
+                  </button>
+                  <CardList
+                    onDeleteCard={(x, y, w, h) => {}}
+                    cards={[]}
+                    title={"Upload your Floor Plan"}
+                    message={
+                      "The floor plan will then be analyzed by advanced ML models"
+                    }
+                    onSelectDelete={() => {}}
+                  />
+                </>
               )}
             </div>
           </div>
-        )}{" "}
-        {!isLoadingSubmit && !inferenceError && (
+        )}
+
+        {!isLoadingSubmit && !inferenceError && !isFetchingBuilding && (
           <div style={columnStyleMain}>
             <FloorPlanImage
               setFileType={setFileType}
@@ -376,6 +566,11 @@ const AnnotateFloorPlan = () => {
               setRoomData={setRoomData}
               setDistancePerPixel={setDistancePerPixel}
               distancePerPixel={distancePerPixel}
+              currentBLEs={currentBLEs}
+              setCurrentBLEs={setCurrentBLEs}
+              highlightedBLE={highlightedBLE}
+              setHighLightedBLE={setHighLightedBLE}
+              onDeleteBLE={onDeleteBLE}
             />
             {!isLoadingInference && showOtherFields && currentFileName && (
               <div
@@ -393,6 +588,10 @@ const AnnotateFloorPlan = () => {
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
+                    backgroundColor: "#F3F4F6",
+                    borderRadius: "10px",
+                    padding: "20px",
+                    boxShadow: "0 4px 10px rgba(0, 0, 0, 0.1)",
                   }}
                 >
                   {!buildingImgSrc && (
@@ -406,6 +605,9 @@ const AnnotateFloorPlan = () => {
                         backgroundColor: fileTypeError
                           ? "rgb(194, 156, 160)"
                           : "#f9fafb",
+                        borderRadius: "10px",
+                        padding: "12px 16px",
+                        transition: "background-color 0.3s ease",
                       }}
                       customMessage={
                         "Click to upload the image of your building"
@@ -435,13 +637,19 @@ const AnnotateFloorPlan = () => {
                         backgroundColor: buildingNameError
                           ? "rgb(206, 83, 83)"
                           : "#f0f8ff",
+                        borderRadius: "8px",
+                        padding: "10px",
+                        fontSize: "16px",
+                        width: "100%",
+                        boxShadow: "0 2px 5px rgba(0, 0, 0, 0.1)",
                       }}
                       onChange={handleBuildingName}
-                    />{" "}
+                    />
                     <p
                       style={{
                         marginTop: -10,
                         color: "rgb(206, 83, 83)",
+                        fontSize: "14px",
                       }}
                     >
                       {buildingNameError}
@@ -465,7 +673,7 @@ const AnnotateFloorPlan = () => {
                         }}
                         step="0.01"
                         onChange={handleLat}
-                      />{" "}
+                      />
                       <input
                         value={lon}
                         type="number"
@@ -477,7 +685,7 @@ const AnnotateFloorPlan = () => {
                           width: "20%",
                         }}
                         onChange={handleLon}
-                      />{" "}
+                      />
                     </div>
                   </div>
                 </div>
@@ -491,18 +699,29 @@ const AnnotateFloorPlan = () => {
                     !lat ||
                     !lon ||
                     !distancePerPixel ||
-                    distancePerPixel === 0
+                    distancePerPixel === 0 ||
+                    currentBLEs.length < 3
                   }
-                  style={submitButton}
+                  style={{
+                    backgroundColor: "#4CAF50",
+                    color: "#fff",
+                    padding: "12px 24px",
+                    borderRadius: "8px",
+                    border: "none",
+                    cursor: "pointer",
+                    transition: "background-color 0.3s ease",
+                    fontSize: "18px",
+                  }}
                   onClick={handleSubmitToStrapi}
                 >
-                  Submit
+                  {buildingToEdit ? "Update" : "Submit"}
                 </button>
               </div>
             )}
           </div>
         )}
-        {isLoadingSubmit && (
+
+        {isLoadingSubmit && !isFetchingBuilding && (
           <div style={columnStyleMain}>
             <div
               style={{
@@ -528,6 +747,7 @@ const AnnotateFloorPlan = () => {
                   style={{
                     color: "white",
                     fontSize: 30,
+                    fontWeight: "bold",
                   }}
                 >
                   {uploadingStatus}
@@ -538,6 +758,7 @@ const AnnotateFloorPlan = () => {
                   style={{
                     color: "rgb(54, 223, 195)",
                     fontSize: 30,
+                    fontWeight: "bold",
                   }}
                 >
                   Your building was uploaded!
@@ -549,6 +770,7 @@ const AnnotateFloorPlan = () => {
                   style={{
                     color: "rgb(214, 76, 76)",
                     fontSize: 30,
+                    fontWeight: "bold",
                   }}
                 >
                   {submitError}
