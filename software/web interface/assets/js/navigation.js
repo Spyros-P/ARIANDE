@@ -3,6 +3,9 @@ let point2 = document.getElementById('point2');
 let canvas = document.getElementById('line-canvas');
 let container = document.getElementById('canvas-container');
 let ctx = canvas.getContext('2d');
+let image = document.getElementById('main-image');
+const imageWidth = image.width;
+const imageHeight = image.height;
 let updateInProgress = false;
 let updateQueued = false;
 let lastPathPoints = [];
@@ -86,12 +89,16 @@ function updatePoints() {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            point1: { x: point1X, y: point1Y },
-            point2: { x: point2X, y: point2Y },
+            point1: { x: point1X/imageWidth, y: point1Y/imageHeight },
+            point2: { x: point2X/imageWidth, y: point2Y/imageHeight },
         }),
     })
     .then(response => response.json())
     .then(data => {
+        // Convert data.path_points from relative to absolute coordinates
+        data.path_points = data.path_points.map(point => {
+            return [point[0] * imageWidth, point[1] * imageHeight];
+        });
         drawCurve(data.path_points);
         document.getElementById('distance-display').textContent = `Distance: ${formatDistance(data.distance)} meters`;
         updateInProgress = false;

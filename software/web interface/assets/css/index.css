@@ -6,8 +6,8 @@ body {
 }
 
 img {
-    max-width: 100%;
-    height: auto;
+    width: 950px;
+    height: 950px;
     text-decoration: none;
     border: none;
     user-select: none;
