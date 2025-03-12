@@ -7,10 +7,13 @@ from shapely.geometry import Polygon, LineString, Point
 from shapely.strtree import STRtree
 from scipy.interpolate import make_interp_spline, splprep, splev
 import pickle
-from typing import Tuple, List, Literal, Callable
+from typing import Tuple, List, Literal, Callable, Dict
 import json
 from inference_sdk import InferenceHTTPClient
-from scripts.functions import *
+if __name__ == '__main__':
+    from functions import *
+else:
+    from scripts.functions import *
 from tqdm import tqdm
 import tempfile
 from skimage.filters import threshold_multiotsu
@@ -33,6 +36,8 @@ class Indoor_Navigation:
     graph_nodes = None
     contours: STRtree = None
     rooms = None
+    idx: index.Index = None
+    idx_dict: Dict[int, Tuple[int,int]] = None
     # TODO: Deprecate this
     scale = 4
 
@@ -123,25 +128,25 @@ class Indoor_Navigation:
 
         if not in_pixels:
             image_shape = self.image_upscale.shape
-            start_pixel = (int(start[0] * image_shape[1]), int(start[1] * image_shape[0]))
-            end_pixel = (int(end[0] * image_shape[1]), int(end[1] * image_shape[0]))
+            start_pixel = (start[0] * image_shape[1], start[1] * image_shape[0])
+            end_pixel = (end[0] * image_shape[1], end[1] * image_shape[0])
 
         # Find the nearest nodes to the start and end points
-        start_node = min(self.graph_nodes, key=lambda x: np.sqrt((x[0] - start_pixel[0])**2 + (x[1] - start_pixel[1])**2))
-        end_node = min(self.graph_nodes, key=lambda x: np.sqrt((x[0] - end_pixel[0])**2 + (x[1] - end_pixel[1])**2))
+        start_node = next(self.idx.nearest((start_pixel[0], start_pixel[1], start_pixel[0], start_pixel[1]), 1))
+        end_node = next(self.idx.nearest((end_pixel[0], end_pixel[1], end_pixel[0], end_pixel[1]), 1))
 
         # Find the shortest path
         if algorithm == 'dijkstra':
-            path = nx.shortest_path(self.graph, source=self.graph_nodes.index(start_node), target=self.graph_nodes.index(end_node), weight='weight')
+            path = nx.shortest_path(self.graph, source=start_node, target=end_node, weight='weight')
         elif algorithm == 'astar':
             # Heuristic function for A* (Euclidean distance)
-            def heuristic(node1: Tuple[int, int], node2: Tuple[int, int]) -> float:
-                x1, y1 = self.graph.nodes[node1]['pos']
-                x2, y2 = self.graph.nodes[node2]['pos']
-                return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
+            def heuristic(node1: int, node2: int) -> float:
+                    pos1 = np.array(self.graph_nodes[node1])
+                    pos2 = np.array(self.graph_nodes[node2])
+                    return np.sum(np.abs(pos1 - pos2))
 
             # Find the shortest path using A* algorithm
-            path = nx.astar_path(self.graph, source=self.graph_nodes.index(start_node), target=self.graph_nodes.index(end_node), heuristic=heuristic, weight='weight')
+            path = nx.astar_path(self.graph, source=start_node, target=end_node, heuristic=heuristic, weight='weight')
         else:
             raise ValueError('Invalid algorithm. Choose either "dijkstra" or "astar"')
         
@@ -159,21 +164,23 @@ class Indoor_Navigation:
             start_point = (start[0] * image_shape[1], start[1] * image_shape[0])
             end_point = (end[0] * image_shape[1], end[1] * image_shape[0])
 
-        # Check if start and end points can be connected directly to the path
-        # TODO: Check if self.image_upscale[start_point[1]][start_point[0]] is ok or we should swap the indices ?? deprecated->abort
-        start_line = LineString([start_point, path_points[0]])
-        end_line = LineString([end_point, path_points[-1]])
+        # # Check if start and end points can be connected directly to the path
+        # # TODO: Check if self.image_upscale[start_point[1]][start_point[0]] is ok or we should swap the indices ?? deprecated->abort
+        # start_line = LineString([start_point, path_points[0]])
+        # end_line = LineString([end_point, path_points[-1]])
 
-        if not any(True for _ in self.contours.query(start_line, 'intersects')):
-            path_points.insert(0, start_point)
-            print('Start point connected to the path')
-        else:
-            print('Start point --NOT-- connected to the path')
-        if not any(True for _ in self.contours.query(end_line, 'intersects')):
-            path_points.append(end_point)
-            print('End point connected to the path')
-        else:
-            print('End point --NOT-- connected to the path')
+        # if not any(True for _ in self.contours.query(start_line, 'intersects')):
+        #     path_points.insert(0, start_point)
+        #     # print('Start point connected to the path')
+        # else:
+        #     # print('Start point --NOT-- connected to the path')
+        #     pass
+        # if not any(True for _ in self.contours.query(end_line, 'intersects')):
+        #     path_points.append(end_point)
+        #     # print('End point connected to the path')
+        # else:
+        #     # print('End point --NOT-- connected to the path')
+        #     pass
         
         if simplify_route:
             # Try skipping path points. Check if removing a point the path will pass through a contour
@@ -284,6 +291,10 @@ class Indoor_Navigation:
         """A function that loads the object from a file"""
         with open(path, 'rb') as f:
             obj = pickle.load(f)
+        # Create the spatial index for the graph nodes
+        obj.idx = index.Index()
+        for node, pos in obj.idx_dict.items():
+            obj.idx.insert(node, (pos[0], pos[1], pos[0], pos[1]))
         return obj
         
     def report(self) -> str:
@@ -359,6 +370,21 @@ class Indoor_Navigation:
         else:
             doors = [{'x': door['x'] * self.scale, 'y': door['y'] * self.scale, 'width': door['width'] * self.scale, 'height': door['height'] * self.scale} for door in doors]
 
+        # img_copy = self.image_upscale.copy()
+        # # to rgb
+        # img_copy = cv2.cvtColor(img_copy, cv2.COLOR_GRAY2RGB)
+        # # plot the detected doors
+        # for i, door in enumerate(doors):
+        #     if i == 69 or i == 70:
+        #         x, y, width, height = door['x'], door['y'], door['width'], door['height']
+        #         cv2.rectangle(img_copy, (x - width // 2, y - height // 2), (x + width // 2, y + height // 2), (255, 0, 0), 2)
+        # plt.figure()
+        # plt.imshow(img_copy)
+        # plt.axis('off')
+        # plt.show()
+        # exit(0)
+
+
         image_doors_erased = self.walls.copy()
         # TODO: Implemet door closing
         image_doors = self.walls.copy()
@@ -402,6 +428,32 @@ class Indoor_Navigation:
             thresholds = threshold_multiotsu(img_doors, classes=num_classes)
             # print(thresholds)
 
+            # if i == 69 or i == 70:
+            #     # Digitize the image into classes based on the thresholds
+            #     regions = np.digitize(img_doors, bins=thresholds)
+
+            #     # Plot the original image and the digitized image
+            #     fig, axes = plt.subplots(1, 2, figsize=(15, 5))
+
+            #     # # Plot the original image
+            #     # axes[0].imshow(img_doors, cmap='gray')
+            #     # axes[0].set_title(f'Original Image: {i}')
+            #     # axes[0].axis('off')
+
+            #     # # Plot the digitized image
+            #     # axes[1].imshow(regions, cmap='gray')
+            #     # axes[1].set_title('Digitized Image')
+            #     # axes[1].axis('off')
+
+            #     # # 17, 58, 64
+            #     # plt.show()
+
+            #     # Convert the regions to an 8-bit single-channel image for saving
+            #     regions_8bit = (regions * (255 // (num_classes - 1))).astype(np.uint8)
+
+            #     cv2.imwrite(f'presentation/door_{i}.png', img_doors)
+            #     cv2.imwrite(f'presentation/door_{i}_thresh.png', regions_8bit)
+
             # Keep the 2nd class and white background
             door_mask = cv2.inRange(img_doors, int(thresholds[0]), 255)
             # dilation
@@ -411,6 +463,7 @@ class Indoor_Navigation:
 
             # Add the door center to the list
             door_centers.append((x, y))
+            
         
         return door_centers, image_doors_erased, image_doors
         
@@ -709,6 +762,12 @@ class Indoor_Navigation:
         # Update the positions dictionary with the new coordinates
         positions = {new_label: (pos[0] - margin, pos[1] - margin) for new_label, pos in enumerate(graph_nodes)}
 
+        self.idx = index.Index()
+        self.idx_dict = {}
+        for i, node in enumerate(graph_nodes):
+            self.idx.insert(i, (node[0], node[1], node[0], node[1]))
+            self.idx_dict[i] = node
+
         return G, graph_nodes, polygon_tree
 
 
@@ -727,7 +786,7 @@ class Indoor_Navigation:
 ## For testing purposes ##
 if __name__ == '__main__':
 
-    navigation = Indoor_Navigation('assets/images/hospital_1.jpg',
+    navigation = Indoor_Navigation('assets/images/hospital_1_cleaned.jpg',
                                     'Fancy Hospital',
                                     debug=True)
     navigation.calibrate(0.00148)

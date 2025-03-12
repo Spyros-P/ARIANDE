@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, jsonify, url_for, send_from_directory
 from PIL import Image, ImageDraw
 import os
-from navigation import Indoor_Navigation
+from scripts.navigation import Indoor_Navigation
 import numpy as np
 
 
@@ -26,10 +26,10 @@ def calculate_route():
     point_1 = (data['point1']['x'], data['point1']['y'])
     point_2 = (data['point2']['x'], data['point2']['y'])
     
-    path_points, distance = navigation.calculate_route(point_1, point_2, in_pixels=True)
+    path_points, distance = navigation.calculate_route(point_1, point_2, in_pixels=False, simplify_route=False)
 
     # keep two decimal points
-    distance = round(distance*0.027, 2)
+    distance = round(distance, 2)
 
     return jsonify({
         'path_points': path_points,
@@ -40,10 +40,10 @@ def calculate_route():
 @app.route('/reload_navigation', methods=['POST'])
 def reload_navigation():
     global navigation
-    navigation = Indoor_Navigation.load('navigation-instances/navigation.pkl')
+    navigation = Indoor_Navigation.load('navigation-instances/hospital_1_old.pkl')
     return jsonify({})
 
 
 if __name__ == '__main__':
-    navigation = Indoor_Navigation.load('navigation-instances/navigation.pkl')
+    navigation = Indoor_Navigation.load('navigation-instances/hospital_1_old.pkl')
     app.run(debug=True)

@@ -1,13 +1,9 @@
 import cv2
 import numpy as np
-import networkx as nx
 import matplotlib.pyplot as plt
 from rtree import index
 from shapely.geometry import Polygon, LineString
-from scipy.interpolate import make_interp_spline, splprep, splev
-import pickle
 from typing import Tuple, List, Literal, Callable
-import json
 from ultralytics import YOLO
 
 MatLike = np.ndarray
@@ -104,6 +100,41 @@ def line_is_outside_contour(line, contour_polygons):
     line_obj = LineString(line)
     return any(line_obj.touches(p) for p in contour_polygons)
 
+def shrink_path(path, geometries):
+    path_points = path.copy()
+
+    i = 0
+    j = len(path_points) - 1
+    
+    while i < j - 1:
+        # Check from the start
+        line = LineString([path_points[i], path_points[i + 2]])
+        if not any(True for _ in geometries.query(line, 'crosses')):
+            path_points.pop(i + 1)
+            j -= 1
+        else:
+            i += 1
+        
+        if i < j - 1:
+            # Check from the end
+            line = LineString([path_points[j], path_points[j - 2]])
+            if not any(True for _ in geometries.query(line, 'crosses')):
+                path_points.pop(j - 1)
+                j -= 1
+            else:
+                j -= 1
+    
+    i = 0
+    while i < len(path_points) - 2:
+        line = LineString([path_points[i], path_points[i + 2]])
+        if not any(True for _ in geometries.query(line, 'crosses')):
+            path_points.pop(i+1)
+        else:
+            i += 1
+
+    # get the indexes of the left points in the original path
+    return [path.index(point) for point in path_points]
+
 
 def highlight_range(image, min, max):
     # gray to hsv
@@ -146,7 +177,7 @@ def clean_image(image):
     image_hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
     mask = cv2.split(image_hsv)[1]
     # apply threshold
-    filters = [threshold(150, 255),
+    filters = [threshold(100, 255),
             morph_dilate(kernel(3)),
             ]
 

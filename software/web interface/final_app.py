@@ -9,7 +9,7 @@ import uuid
 import logging
 import shutil
 from predict_walls.UNet_Pytorch_Customdataset.predict import predict_wall_mask
-from scripts.navigation import Indoor_Navigation
+from scripts.navigation_smart import Indoor_Navigation
 
 from ultralytics import YOLO
 
@@ -241,7 +241,7 @@ def post_user_feedback():
     # Initialize navigation with the saved image
     navigation = Indoor_Navigation(image_path)
     navigation.calibrate(pixels_to_cm)
-    grid_size = int(navigation.cm_to_pixels(150, scale=4))
+    grid_size = int(navigation.cm_to_pixels(50, scale=4))
     navigation.process_image(grid_size=grid_size, doors=doors, rooms=rooms)
 
     # Save the navigation instance

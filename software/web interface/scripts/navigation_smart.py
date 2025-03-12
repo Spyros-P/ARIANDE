@@ -17,6 +17,7 @@ else:
 from tqdm import tqdm
 import tempfile
 from skimage.filters import threshold_multiotsu
+import random
 
 MatLike = np.ndarray
 
@@ -30,6 +31,7 @@ class SmartGraph:
     # JIT edges contain the index of the smart doors
     jit_edges: Dict[int, List[Tuple[Tuple[int|str, int|str], float]]] = None
     geometries: STRtree = None
+    graph_nodes: Dict[int, Tuple[int,int]] = None
 
     def __init__(self, graph: nx.Graph, hot_nodes: List[int], geometries: STRtree):
         """
@@ -112,16 +114,32 @@ class SmartGraph:
         for i in hot_info:
             self.graph.add_node(counter+hot_len*sub_len+i, pos=hot_info[i]['coords'])
         # Connect the smart nodes to each other if they belong to the same subgraph
+        smart_counter = counter+hot_len*sub_len+hot_len
         for nodes in hot_nodes_subgraphs.values():
             for i in nodes:
                 for j in nodes:
                     if i != j:
                         # Calculate the weight between the smart nodes based on the distance between in the original graph
                         path = nx.shortest_path(graph, source=hot_info[i]['original_node'], target=hot_info[j]['original_node'], weight='weight')
-                        # Calculate the weight of the path
-                        weight = sum([graph.edges[path[k], path[k+1]]['weight'] for k in range(len(path) - 1)])
                         path_points = [graph.nodes[node].get('pos') for node in path]
-                        self.graph.add_edge(counter+hot_len*sub_len+i, counter+hot_len*sub_len+j, weight=weight, path=path_points)
+                        # Shorten the path. Cut points if the new path does not intersect with any geometry
+                        indexes = shrink_path(path_points, geometries)
+                        path_points = [path_points[k] for k in indexes]
+                        path = [path[k] for k in indexes]
+                        # Add smart nodes if the do not exist
+                        for node, pos in zip(path[1:-1], path_points[1:-1]):
+                            if smart_counter+node not in self.graph.nodes:
+                                self.graph.add_node(smart_counter+node, pos=pos)
+                        # Connect the smart nodes if they do not have an edge
+                        for idx in range(len(path) - 1):
+                            node1 = smart_counter+path[idx] if idx>0 else counter+hot_len*sub_len+i
+                            node2 = smart_counter+path[idx+1] if idx<len(path)-2 else counter+hot_len*sub_len+j
+                            if not self.graph.has_edge(node1, node2):
+                                weight = np.linalg.norm(np.array(path_points[idx]) - np.array(path_points[idx+1]))
+                                self.graph.add_edge(node1, node2, weight=weight)
+
+        # Cache the graph nodes
+        self.graph_nodes = { node: self.graph.nodes[node].get('pos') for node in self.graph.nodes }
         
         # Create JIT edges
         self.jit_edges = {}
@@ -131,7 +149,6 @@ class SmartGraph:
                 jit_edges.append(((counter+hot_len*sub_len+i, counter+i*sub_len+subgraph), 0))
             self.jit_edges[subgraph] = jit_edges
 
-
     def find_path(self, start: Tuple[float,float], end: Tuple[float,float]):
         # Find the nearest nodes to the start and end points
         start_near = next(self.graph_index.nearest((start[0], start[1], start[0], start[1]), 1))
@@ -140,15 +157,14 @@ class SmartGraph:
         # Find the subgraph that contains the start and end nodes
         subgraph_start = self.graph.nodes[start_near].get('subgraph')
         subgraph_end = self.graph.nodes[end_near].get('subgraph')
+    
+        # Define the heuristic function for A* (Euclidean distance)
+        def heuristic(node1: int, node2: int) -> float:
+            pos1 = np.array(self.graph_nodes[node1])
+            pos2 = np.array(self.graph_nodes[node2])
+            return np.linalg.norm(pos1 - pos2)
 
-        if subgraph_start == subgraph_end:
-            # Find the shortest path
-            path = nx.shortest_path(self.graph, source=start_near, target=end_near, weight='weight')
-            
-            path_points = [self.graph.nodes[node].get('pos') for node in path]
-            distance = sum([self.graph.edges[path[i], path[i+1]]['weight'] for i in range(len(path) - 1)])
-
-        else:
+        if subgraph_start != subgraph_end:
             # Connect JIT edges
             jit_edges_start = self.jit_edges[subgraph_start]
             jit_edges_end = self.jit_edges[subgraph_end]
@@ -158,29 +174,17 @@ class SmartGraph:
                 self.graph.add_edge(jit_edge[0], jit_edge[1], weight=weight)
             for jit_edge, weight in jit_edges_end:
                 self.graph.add_edge(jit_edge[0], jit_edge[1], weight=weight)
-            
-            # Find the shortest path
-            path = nx.shortest_path(self.graph, source=start_near, target=end_near, weight='weight')
 
-            path_points = [self.graph.nodes[node].get('pos') for node in path]
-            distance = sum([self.graph.edges[path[i], path[i+1]]['weight'] for i in range(len(path) - 1)])
-            
-            path_points_unfold = []
-            # Retrieve cached paths if they exist
-            for i in range(len(path) - 1):
-                # if path[i], path[i+1] edge has attribute path
-                if 'path' in self.graph.edges[path[i], path[i+1]]:
-                    cached_path = self.graph.edges[path[i], path[i+1]]['path']
-                    # Reverse the path if the direction is not correct
-                    if cached_path[0] == path_points[i+1]:
-                        cached_path = cached_path[::-1]
-                    path_points_unfold.extend(cached_path)
-                else:
-                    path_points_unfold.append(path_points[i])
-            path_points_unfold.append(path_points[-1])
+        # Find the shortest path using A* algorithm
+        path = nx.astar_path(self.graph, source=start_near, target=end_near, heuristic=heuristic, weight='weight')
 
-            path_points = path_points_unfold
+        # Extract the path points
+        path_points = [self.graph_nodes[node] for node in path]
 
+        # Calculate the total distance of the path
+        distance = sum([self.graph.edges[path[i], path[i+1]]['weight'] for i in range(len(path) - 1)])
+
+        if subgraph_start != subgraph_end:
             # Remove JIT edges
             for jit_edge, _ in jit_edges_start:
                 self.graph.remove_edge(jit_edge[0], jit_edge[1])
@@ -189,7 +193,7 @@ class SmartGraph:
 
         return path_points, distance
 
-    def plot_graph(self, image):
+    def plot_graph(self, image, indexes=None, rand_seed=42, save_file=None):
         image = image.copy()
 
         # image to rgb
@@ -197,23 +201,45 @@ class SmartGraph:
 
         # get the subgraphs of the graph
         subgraphs = [self.graph.subgraph(c).copy() for c in nx.connected_components(self.graph)]
-
-        # get the colors
-        import random
-        colors = [(random.randint(30, 225), random.randint(30, 225), random.randint(30, 225)) for _ in range(len(subgraphs))]
+        # set random seed get the colors
+        if rand_seed is not None:
+            random.seed(rand_seed)
+            colors = [(random.randint(30, 225), random.randint(30, 225), random.randint(30, 225)) for _ in range(len(subgraphs))]
 
         # draw edges
-        for subgraph, color in zip(subgraphs[:-1], colors):
+        if indexes is None:
+            plot_subgraphs = subgraphs[:-1]
+            if rand_seed is not None:
+                plot_colors = colors[:-1]
+            else:
+                plot_colors = [(255, 0, 0) for _ in range(len(subgraphs) - 1)]
+        else:
+            plot_subgraphs = [subgraphs[i] for i in indexes]
+            if rand_seed is not None:
+                plot_colors = [colors[i] for i in indexes]
+            else:
+                plot_colors = [(255, 0, 0) for _ in indexes]
+        
+        def tuple_to_int(tup):
+            return tuple(int(x) for x in tup)
+        
+        for subgraph, color in zip(plot_subgraphs, plot_colors):
             for edge in subgraph.edges:
-                cv2.line(image, subgraph.nodes[edge[0]]['pos'], subgraph.nodes[edge[1]]['pos'], color, 2)
-        # draw nodes
-        for node in self.graph.nodes:
-            cv2.circle(image, self.graph.nodes[node].get('pos'), 7, (0, 0, 255), -1)
+                cv2.line(image, tuple_to_int(subgraph.nodes[edge[0]]['pos']), tuple_to_int(subgraph.nodes[edge[1]]['pos']), color, 2)
 
-        plt.figure(figsize=(20, 20))
-        plt.imshow(image)
-        plt.axis('off')
-        plt.show()
+        # draw nodes
+        for subgraph in plot_subgraphs:
+            for node in subgraph.nodes:
+                cv2.circle(image, tuple_to_int(self.graph.nodes[node].get('pos')), 7, (0, 0, 255), -1)
+
+        if save_file:
+            image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            cv2.imwrite(save_file, image_rgb)
+        else:
+            plt.figure(figsize=(20, 20))
+            plt.imshow(image)
+            plt.axis('off')
+            plt.show()
 
 
 class Indoor_Navigation:
@@ -755,11 +781,24 @@ class Indoor_Navigation:
         
             self.rooms = rooms_dict
 
-        walls_filtered, contours_walls = self.get_contours_and_filter(self.walls, fill_black=True)
+        walls_filtered, contours_walls = self.get_contours_and_filter(self.walls, fill_black=False)
 
         walls_doors = cv2.bitwise_and(walls_filtered, self.walls_doors)
 
         walls_doors_filtered, contours_walls_doors = self.get_contours_and_filter(walls_doors)
+
+        img_copy = walls_filtered.copy()
+        # to RGB
+        img_copy = cv2.cvtColor(img_copy, cv2.COLOR_GRAY2RGB)
+        # draw each contour with a different color
+        for i, contour in enumerate(contours_walls.geometries):
+            import random
+            color = (random.randint(50, 220), random.randint(50, 220), random.randint(50, 220))
+            # polygon to cv2 contour
+            contour = np.array(contour.exterior.coords, dtype=np.int32)
+            cv2.drawContours(img_copy, [contour], -1, color, thickness=2)
+        cv2.imwrite('presentation/contours.png', img_copy)
+        raise ValueError('Stop here')
 
         if pbar is not None:
             pbar.write("Placing graph nodes...")
@@ -894,7 +933,7 @@ if __name__ == '__main__':
                                     'Fancy Hospital',
                                     debug=True)
     navigation.calibrate(0.00148)
-    navigation.process_image(grid_size=80)
+    navigation.process_image(grid_size=120)
 
     # navigation.graph.plot_graph(navigation.image_upscale)
 
